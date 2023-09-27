@@ -14,9 +14,12 @@ void setup() {
   Serial.begin(9600);
   Serial.println("\nRozpoczynanie konfiguracji.");
 
-  // pulling credentials from separate file
+  // pulling credentials from Credentials.hpp
   ConnectivityData.ssid = ssidCredential;
   ConnectivityData.password =passwordCredential;
+
+  Serial.println(ConnectivityData.ssid);
+  Serial.println(ConnectivityData.password);
 
   //setupMotors();
   //runMaintainWifiConnectionRoutine();
@@ -32,20 +35,7 @@ void loop() {
   //   runReceiveUDPRoutine();
   // }
 
-  long unsigned duration, distance;
-
-  pinMode(proximitySensor.trigPin, OUTPUT);
-  pinMode(proximitySensor.echoPin, INPUT);
-
-  digitalWrite(proximitySensor.trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(proximitySensor.trigPin, LOW);
-
-  duration = pulseIn(proximitySensor.echoPin, HIGH);
-
-  distance = (duration/2) / 29.1;
-
-  Serial.println(distance);
+  Serial.println("Test.");
 
   delay(200);
 }
