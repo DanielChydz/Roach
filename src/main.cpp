@@ -6,12 +6,17 @@
 #include <Arduino.h>
 #include <Connectivity.hpp>
 #include <MessageProcessor.hpp>
+#include <Credentials.hpp>
 
 // setup software
 void setup() {
   // setup serial interface
   Serial.begin(9600);
   Serial.println("\nRozpoczynanie konfiguracji.");
+
+  // pulling credentials from separate file
+  ConnectivityData.ssid = ssidCredential;
+  ConnectivityData.password =passwordCredential;
 
   //setupMotors();
   //runMaintainWifiConnectionRoutine();
