@@ -8,6 +8,10 @@
 #include <MessageProcessor.hpp>
 #include <Credentials.hpp>
 
+int testt = 1;
+
+void test(void *param);
+
 // setup software
 void setup() {
   // setup serial interface
@@ -16,12 +20,20 @@ void setup() {
 
   // pulling credentials from Credentials.hpp
   ConnectivityData.ssid = ssidCredential;
-  ConnectivityData.password =passwordCredential;
+  ConnectivityData.password = passwordCredential;
 
-  Serial.println(ConnectivityData.ssid);
-  Serial.println(ConnectivityData.password);
+  setupMotors();
 
-  //setupMotors();
+  xTaskCreatePinnedToCore(
+    test,      // Function that should be called
+    "test1",    // Name of the task (for debugging)
+    1000,               // Stack size (bytes)
+    NULL,               // Parameter to pass
+    1,                  // Task priority
+    NULL,               // Task handle
+    0          // Core you want to run the task on (0 or 1)
+  );
+
   //runMaintainWifiConnectionRoutine();
   //udp.begin(ConnectivityData.udpBeginPort);
 
@@ -35,7 +47,13 @@ void loop() {
   //   runReceiveUDPRoutine();
   // }
 
-  Serial.println("Test.");
+  Serial.println(leftEncoder);
+  delay(1000);
+}
 
-  delay(200);
+void test(void *param){
+  while(true){
+    rotateWheels(1, 5, 64, 0);
+    delay(10000);
+  }
 }
