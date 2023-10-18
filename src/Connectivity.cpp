@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Config.hpp>
+#include <Credentials.hpp>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <MessageProcessor.hpp>
@@ -9,33 +10,35 @@ WiFiUDP udp;
 bool firstBoot = true;
 bool connected = false;
 
+// task for maintaining wifi connection
 void maintainWifiConnection(void *param){
-    const char* data = (const char*) param;
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+
     while(true){
-    if(WiFi.status() != WL_CONNECTED){
-        connected = false;
-        brake();
+        if(WiFi.status() != WL_CONNECTED){
+            connected = false;
+            brake();
 
-        if(!firstBoot)Serial.println("\nRozlaczono z siecia wifi.");
+            if(firstBoot)Serial.println("\nRozlaczono z siecia wifi.");
         
-        WiFi.begin(ConnectivityData.ssid, ConnectivityData.password);
-        Serial.println("\nLaczenie z wifi.");
+            WiFi.begin(ssid, password);
+            Serial.println("\nLaczenie z wifi.");
         
-        while(WiFi.status() != WL_CONNECTED){
-            Serial.print(".");
-            delay(1000);
+            while(WiFi.status() != WL_CONNECTED){
+                Serial.print(".");
+                vTaskDelayUntil( &xLastWakeTime, 1000 )
+            }
+
+            Serial.println("\nPolaczono z siecia wifi.");
+            Serial.print("Adres lokalny ESP32: ");
+            Serial.println(WiFi.localIP());
+            connected = true;
         }
-
-        Serial.println("\nPolaczono z siecia wifi.");
-        Serial.print("Adres lokalny ESP32: ");
-        Serial.println(WiFi.localIP());
-        connected = true;
-    }
-    if(!firstBoot) {
-        udp.begin(ConnectivityData.udpBeginPort);
-        firstBoot = false;
-    }
-    vTaskDelay(maintainWifiConnectionDelay);
+        if(!firstBoot) {
+            udp.begin(ConnectivityData.udpBeginPort);
+            firstBoot = false;
+        }
+        xTaskDelayUntil(&xLastWakeTime, maintainWifiConnectionDelay);
     }
 }
 
@@ -50,13 +53,14 @@ char* udpReceive(){
     return packetBuffer;
 }
 
-// task for receiving UDP packets, priority set in config
+// task for receiving UDP packets
 void receiveUDPPacket(void *params){
+    TickType_t xLastWakeTime = xTaskGetTickCount();
     while(true){
-        char *pMsg = udpReceive();
-        if(*pMsg != 0) processMessage(pMsg);
-        delete[] pMsg;
-        delay(receiveUDPPacketDelay);
+        // char *pMsg = udpReceive();
+        // if(*pMsg != 0) processMessage(pMsg);
+        // delete[] pMsg;
+        xTaskDelayUntil(&xLastWakeTime, receiveUDPPacketDelay);
     }
 }
 
@@ -71,10 +75,10 @@ void udpPrepareMessage(int subject){
     char messageBuffer[256];
     string messageBufferString;
 
-            messageBufferString.append("DBG:PX1=");
-            messageBufferString.append(to_string(123).substr(0, 5));
-            messageBufferString.append(";");
-            strcpy(messageBuffer, messageBufferString.c_str());
-            udpSend(messageBuffer);
-            messageBufferString = "";
+    messageBufferString.append("DBG:PX1=");
+    messageBufferString.append(to_string(123).substr(0, 5));
+    messageBufferString.append(";");
+    strcpy(messageBuffer, messageBufferString.c_str());
+    udpSend(messageBuffer);
+    messageBufferString = "";
 }

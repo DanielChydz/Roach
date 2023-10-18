@@ -54,11 +54,11 @@ void setupMotors() {
   xTaskCreatePinnedToCore(
     &attachInterrupts,      // Function that should be called
     "attachInterrupts",    // Name of the task (for debugging)
-    1000,               // Stack size (bytes)
+    10000,               // Stack size (bytes)
     NULL,               // Parameter to pass
-    1,                  // Task priority
+    attachInterruptsPriority,                  // Task priority
     NULL,               // Task handle
-    0          // Core you want to run the task on (0 or 1)
+    attachInterruptsCore          // Core you want to run the task on (0 or 1)
   );
 }
 
@@ -119,6 +119,7 @@ void attachInterrupts(void *param){
 
   attachInterrupt(secondMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
   attachInterrupt(secondMotor.encoderRightPin, encLeft_rightPin, CHANGE);
+  vTaskDelete(NULL);
 }
 
 void encLeft_leftPin(){

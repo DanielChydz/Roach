@@ -2,7 +2,7 @@
 
 extern WiFiUDP udp;
 extern bool connected;
-char* udpReceive();
 void udpSend(char bufferSend[]);
 void udpPrepareMessage(int subject);
-void maintainWifiConnection();
+void maintainWifiConnection(void *param);
+void receiveUDPPacket(void *params);
