@@ -2,9 +2,8 @@
 #include <Config.hpp>
 #include <WiFi.h>
 #include <WiFiUdp.h>
-#include <AceRoutine.h>
 #include <MessageProcessor.hpp>
-#include <Motors.hpp>
+#include <Regulator.hpp>
 
 WiFiUDP udp;
 bool firstBoot = false;
@@ -134,26 +133,12 @@ void udpSend(char bufferSend[]){
 //     }
 // }
 
-COROUTINE(maintainWifiConnectionRoutine){
-  COROUTINE_LOOP(){
+void maintainWifiConnection(){
     connectWifi();
-    COROUTINE_DELAY(wifiReconnectRoutine);
-  }
 }
 
-COROUTINE(receiveUDPRoutine){
-    COROUTINE_LOOP(){
+void receiveUDPRoutine(){
         char *pMsg = udpReceive();
         if(*pMsg != 0) processMessage(pMsg);
         delete[] pMsg;
-        COROUTINE_DELAY(udpReceiveDelay);
-    }
-}
-
-void runMaintainWifiConnectionRoutine(){
-    maintainWifiConnectionRoutine.runCoroutine();
-}
-
-void runReceiveUDPRoutine(){
-    receiveUDPRoutine.runCoroutine();
 }
