@@ -28,6 +28,7 @@ int currentPulses = 0;
 
 void encLeft_leftPin();
 void encLeft_rightPin();
+void attachInterrupts(void *param);
 
 void setStandby(int pin, bool mode){
   digitalWrite(pin, mode);
@@ -49,13 +50,16 @@ void setupMotors() {
 
   pinMode(firstMotor.encoderLeftPin, INPUT);
   pinMode(firstMotor.encoderRightPin, INPUT);
-  attachInterrupt(firstMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
-  attachInterrupt(firstMotor.encoderRightPin, encLeft_rightPin, CHANGE);
 
-  // attachInterrupt(secondMotor.encoderLeftPin, encLeft_leftPin_High, FALLING);
-  // attachInterrupt(secondMotor.encoderLeftPin, encLeft_leftPin_High, RISING);
-  // attachInterrupt(secondMotor.encoderRightPin, encLeft_leftPin_High, FALLING);
-  // attachInterrupt(secondMotor.encoderRightPin, encLeft_leftPin_High, RISING);
+  xTaskCreatePinnedToCore(
+    &attachInterrupts,      // Function that should be called
+    "attachInterrupts",    // Name of the task (for debugging)
+    1000,               // Stack size (bytes)
+    NULL,               // Parameter to pass
+    1,                  // Task priority
+    NULL,               // Task handle
+    0          // Core you want to run the task on (0 or 1)
+  );
 }
 
 // First direction pin, second direction pin, value 0/1.
@@ -107,6 +111,14 @@ void driveVehicle(){
     radius = map(radius, 0, 100, 0, 255);
     setMotorsSpeed(speed, radius);
   }
+}
+
+void attachInterrupts(void *param){
+  attachInterrupt(firstMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
+  attachInterrupt(firstMotor.encoderRightPin, encLeft_rightPin, CHANGE);
+
+  attachInterrupt(secondMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
+  attachInterrupt(secondMotor.encoderRightPin, encLeft_rightPin, CHANGE);
 }
 
 void encLeft_leftPin(){

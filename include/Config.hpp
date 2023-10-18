@@ -4,7 +4,16 @@ using namespace std;
 
 const char keyWord[18] = "DC_Remote_Car_Key";
 const int udpReceiveDelay = 32; // 30 fps
-const int wifiReconnectRoutine = 500; // ? 
+
+// tasks config
+// wifi connection maintenance task
+const int maintainWifiConnectionDelay = 200; // delay, ms
+const int maintainWifiConnectionPriority = 3; // priority
+const int maintainWifiConnectionCore = 1; // core, 0-1
+// UDP packet receiver task
+const int receiveUDPPacketDelay = 50; // delay, ms
+const int receiveUDPPacketPriority = 2; // priority
+const int receiveUDPPacketCore = 1; // core, 0-1
 
 const int pulsesPerRotation = 1400;
 
