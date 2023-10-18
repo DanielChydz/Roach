@@ -75,9 +75,9 @@ void udpPrepareMessage(int subject){
     char messageBuffer[256];
     string messageBufferString;
 
-    messageBufferString.append("DBG:PX1=");
+    messageBufferString.append("1");
     messageBufferString.append(to_string(123).substr(0, 5));
-    messageBufferString.append(";");
+    messageBufferString.append("2");
     strcpy(messageBuffer, messageBufferString.c_str());
     udpSend(messageBuffer);
     messageBufferString = "";

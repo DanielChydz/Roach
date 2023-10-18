@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <Regulator.hpp>
 #include <Config.hpp>
-#include <Arduino.h>
 #include <Connectivity.hpp>
 #include <MessageProcessor.hpp>
 
