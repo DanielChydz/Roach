@@ -4,7 +4,7 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <MessageProcessor.hpp>
-#include <Regulator.hpp>
+#include <Controller.hpp>
 
 WiFiUDP udp;
 bool firstBoot = true;

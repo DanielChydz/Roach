@@ -1,7 +1,7 @@
 #include <ctype.h> // isdigit
 #include <Arduino.h>
 #include <Config.hpp>
-#include <Regulator.hpp>
+#include <Controller.hpp>
 
 int getValue(char* msg);
 int getKey(char* msg);

@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <Regulator.hpp>
+#include <Controller.hpp>
 #include <Config.hpp>
 #include <Connectivity.hpp>
 #include <MessageProcessor.hpp>
