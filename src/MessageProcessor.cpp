@@ -11,35 +11,34 @@ void processMessage(char* msg){
     char* newMsg = msg;
     int key = getKey(msg);
     if(key) return;
-    for(int i = 0; i < 17; i++) newMsg++;
+    for(int i = 0; i < 17; i++) newMsg++; // 17 should be calculated on the go instead of hard coded
 
     while (*newMsg!='E')
     {
         switch(*newMsg){
-            case 'K':
+            // forward
+            case 'P':
                 newMsg++;
-                angle = getValue(newMsg);
-                Serial.print("1=");
-                Serial.println(angle);
+                //angle = getValue(newMsg);
+                break;
+            // backwards
+            case 'T' || 'B':
+                newMsg++;
+                //speed = getValue(newMsg);
+                break;
+            // right
+            case 'R':
+                newMsg++;
+                // = getValue(newMsg);
+                break;
+            // left
+            case 'L':
+                newMsg++;
+                // = getValue(newMsg);
                 break;
             case 'S':
                 newMsg++;
-                speed = getValue(newMsg);
-                Serial.print("2=");
-                Serial.println(speed);
-                break;
-            case 'O':
-                newMsg++;
-                axis = getValue(newMsg);
-                Serial.print("3=");
-                Serial.println(axis);
-                break;
-            case 'R':
-                newMsg++;
-                radius = getValue(newMsg);
-                Serial.print("4=");
-                Serial.println(radius);
-                break;
+                // = getValue(newMsg);
             default:
                 break;
         }
@@ -49,9 +48,9 @@ void processMessage(char* msg){
     driveVehicle();
 }
 
+// extract values from data
 int getValue(char* msg){
     int val=0;
-    int tempVal;
     while (isdigit(*msg)){
         val=(val*10)+(*msg-'0');
         msg++;
@@ -59,6 +58,7 @@ int getValue(char* msg){
     return val;
 }
 
+// check if data contains key word
 int getKey(char* msg){
     int keyVal = 1;
     char keyWordLocal[18];

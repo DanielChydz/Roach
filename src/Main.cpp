@@ -24,6 +24,7 @@ void setup() {
     NULL,               // Task handle
     maintainWifiConnectionCore          // Core you want to run the task on (0 or 1)
   );
+  // create udp packet receiver task
   xTaskCreatePinnedToCore(
     receiveUDPPacket,      // Function that should be called
     "receiveUDPPacket",    // Name of the task (for debugging)

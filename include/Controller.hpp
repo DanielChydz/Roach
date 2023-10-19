@@ -1,5 +1,4 @@
-extern int angle, axis, firstMotorSpeed, secondMotorSpeed, speed, radius, leftEncoder;
-extern double deltaCurrent, deltaLastRun;
+extern uint8_t speed, firstMotorSpeed, secondMotorSpeed, command;
 
 void setupMotors();
 

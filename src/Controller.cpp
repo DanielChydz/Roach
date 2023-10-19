@@ -1,30 +1,24 @@
 #include <Arduino.h>
 #include <Config.hpp>
 
-const double pi = 3.14159265;
-
-int angle = 0;
-int axis = 0;
-int speed = 0;
-int radius = 0;
-int firstMotorSpeed = 0;
-int secondMotorSpeed = 0;
-int firstMotorDir = 0;
-int secondMotorDir = 0;
-
-int leftEncoderCount = 0;
-int rightEncoderCount = 0;
+uint8_t speed = 0;
+uint8_t firstMotorSpeed = 0;
+uint8_t secondMotorSpeed = 0;
+uint8_t command = 0;
+float distance = 0;
+bool firstMotorDir = 0;
+bool secondMotorDir = 0;
 
 int leftEncoder = 0;
 int rightEncoder = 0;
 
-int leftEncoder_leftPin;
-int leftEncoder_rightPin;
-int rightEncoder_leftPin;
-int rightEncoder_rightPin;
+bool leftEncoder_leftPin;
+bool leftEncoder_rightPin;
+bool rightEncoder_leftPin;
+bool rightEncoder_rightPin;
 
-int requiredPulses = 0;
-int currentPulses = 0;
+short requiredPulses = 0;
+short currentPulses = 0;
 
 void encLeft_leftPin();
 void encLeft_rightPin();
@@ -37,19 +31,19 @@ void setStandby(int pin, bool mode){
 void setupMotors() {
   Serial.println("Konfiguracja silnikow.");
 
-  pinMode(firstMotor.pin, OUTPUT);
-  pinMode(firstMotor.standby, OUTPUT);
-  pinMode(firstMotor.motorPolarization_IN1, OUTPUT);
-  pinMode(firstMotor.motorPolarization_IN2, OUTPUT);
+  pinMode(leftMotor.pin, OUTPUT);
+  pinMode(leftMotor.standby, OUTPUT);
+  pinMode(leftMotor.motorPolarization_IN1, OUTPUT);
+  pinMode(leftMotor.motorPolarization_IN2, OUTPUT);
 
-  pinMode(secondMotor.pin, OUTPUT);
-  pinMode(secondMotor.motorPolarization_IN1, OUTPUT);
-  pinMode(secondMotor.motorPolarization_IN2, OUTPUT);
+  pinMode(rightMotor.pin, OUTPUT);
+  pinMode(rightMotor.motorPolarization_IN1, OUTPUT);
+  pinMode(rightMotor.motorPolarization_IN2, OUTPUT);
 
-  setStandby(firstMotor.standby, HIGH);
+  setStandby(leftMotor.standby, HIGH);
 
-  pinMode(firstMotor.encoderLeftPin, INPUT);
-  pinMode(firstMotor.encoderRightPin, INPUT);
+  pinMode(leftMotor.encoderLeftPin, INPUT);
+  pinMode(leftMotor.encoderRightPin, INPUT);
 
   xTaskCreatePinnedToCore(
     &attachInterrupts,      // Function that should be called
@@ -75,55 +69,39 @@ void setMotorSpeed(int motor, int speed) {
 
 // First motor speed, second motor speed, values 0-255.
 void setMotorsSpeed(int first, int second){
-  setMotorSpeed(firstMotor.pin, first);
-  setMotorSpeed(secondMotor.pin, second);
+  setMotorSpeed(leftMotor.pin, first);
+  setMotorSpeed(rightMotor.pin, second);
 }
 
 // First motor rotation direction, second motor rotation direction, values 0/1.
 void setMotorsRotationDir(int first, int second){
-  setMotorRotationDir(firstMotor.motorPolarization_IN1, firstMotor.motorPolarization_IN2, first);
-  setMotorRotationDir(secondMotor.motorPolarization_IN1, secondMotor.motorPolarization_IN2, second);
+  setMotorRotationDir(leftMotor.motorPolarization_IN1, leftMotor.motorPolarization_IN2, first);
+  setMotorRotationDir(rightMotor.motorPolarization_IN1, rightMotor.motorPolarization_IN2, second);
 }
 
 void brake(){
   setMotorsSpeed(1, 1);
-  digitalWrite(firstMotor.motorPolarization_IN1, 0);
-  digitalWrite(firstMotor.motorPolarization_IN2, 0);
-  digitalWrite(secondMotor.motorPolarization_IN1, 0);
-  digitalWrite(secondMotor.motorPolarization_IN2, 0);
+  digitalWrite(leftMotor.motorPolarization_IN1, 0);
+  digitalWrite(leftMotor.motorPolarization_IN2, 0);
+  digitalWrite(rightMotor.motorPolarization_IN1, 0);
+  digitalWrite(rightMotor.motorPolarization_IN2, 0);
 }
 
 void driveVehicle(){
-  if(speed == 0 && radius == 0) {
-    brake();
-  } else {
-    if(angle < 180){
-      setMotorRotationDir(firstMotor.motorPolarization_IN1, firstMotor.motorPolarization_IN2, 0);
-    } else {
-      setMotorRotationDir(firstMotor.motorPolarization_IN1, firstMotor.motorPolarization_IN2, 1);
-    }
-    if(axis < 180){
-      setMotorRotationDir(secondMotor.motorPolarization_IN1, secondMotor.motorPolarization_IN2, 0);
-    } else {
-      setMotorRotationDir(secondMotor.motorPolarization_IN1, secondMotor.motorPolarization_IN2, 1);
-    }
-    speed = map(speed, 0, 100, 0, 255);
-    radius = map(radius, 0, 100, 0, 255);
-    setMotorsSpeed(speed, radius);
-  }
+  // T.B.C.
 }
 
 void attachInterrupts(void *param){
-  attachInterrupt(firstMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
-  attachInterrupt(firstMotor.encoderRightPin, encLeft_rightPin, CHANGE);
+  attachInterrupt(leftMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
+  attachInterrupt(leftMotor.encoderRightPin, encLeft_rightPin, CHANGE);
 
-  attachInterrupt(secondMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
-  attachInterrupt(secondMotor.encoderRightPin, encLeft_rightPin, CHANGE);
-  vTaskDelete(NULL);
+  attachInterrupt(rightMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
+  attachInterrupt(rightMotor.encoderRightPin, encLeft_rightPin, CHANGE);
+  vTaskDelete(NULL); // would be good to move it outside the task in final version
 }
 
 void encLeft_leftPin(){
-  leftEncoder_leftPin = digitalRead(firstMotor.encoderLeftPin);
+  leftEncoder_leftPin = digitalRead(leftMotor.encoderLeftPin);
   if((!leftEncoder_leftPin && !leftEncoder_rightPin) || (leftEncoder_leftPin && leftEncoder_rightPin)){
     leftEncoder--;
   } else if((!leftEncoder_leftPin && leftEncoder_rightPin) || (leftEncoder_leftPin && !leftEncoder_rightPin)) {
@@ -141,7 +119,7 @@ void encLeft_leftPin(){
 }
 
 void encLeft_rightPin(){
-  leftEncoder_rightPin = digitalRead(firstMotor.encoderRightPin);
+  leftEncoder_rightPin = digitalRead(leftMotor.encoderRightPin);
   if(!leftEncoder_leftPin && leftEncoder_rightPin){
     leftEncoder--;
   } else if(leftEncoder_leftPin && !leftEncoder_rightPin) {
@@ -158,10 +136,8 @@ void encLeft_rightPin(){
   }
 }
 
-void encRight_leftPin_Low(){leftEncoder_leftPin = 0;}
-void encRight_leftPin_High(){leftEncoder_leftPin = 1;}
-void encRight_rightPin_Low(){rightEncoder_rightPin = 0;}
-void encRight_rightPin_High(){rightEncoder_rightPin = 1;}
+void encRight_leftPin(){rightEncoder_leftPin = digitalRead(rightMotor.encoderLeftPin);}
+void encRight_rightPin(){rightEncoder_rightPin = digitalRead(rightMotor.encoderRightPin);}
 
 /*
 Function inteded mainly for debugging purposes.
@@ -193,13 +169,13 @@ void rotateWheels(int wheel, float times, int speed, int direction){
       requiredPulses = pulsesPerRotation * times;
       break;
     case 1:
-      setMotorRotationDir(firstMotor.motorPolarization_IN1, firstMotor.motorPolarization_IN2, direction);
-      setMotorSpeed(firstMotor.pin, speed);
+      setMotorRotationDir(leftMotor.motorPolarization_IN1, leftMotor.motorPolarization_IN2, direction);
+      setMotorSpeed(leftMotor.pin, speed);
       requiredPulses = pulsesPerRotation * times;
       break;
     case 2:
-      setMotorRotationDir(secondMotor.motorPolarization_IN1, secondMotor.motorPolarization_IN2, direction);
-      setMotorSpeed(secondMotor.pin, speed);
+      setMotorRotationDir(rightMotor.motorPolarization_IN1, rightMotor.motorPolarization_IN2, direction);
+      setMotorSpeed(rightMotor.pin, speed);
       requiredPulses = pulsesPerRotation * times;
       break;
   }
