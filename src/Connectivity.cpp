@@ -13,14 +13,16 @@ bool disconnectAction = false;
 bool connected = false;
 bool dots = false;
 
-TaskHandle_t *xDotsHandle;
+TaskHandle_t xDotsHandle;
 
 // task, I think the name is self explanatory
 void printDotsWhileConnectingToWifi(void *param){
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    while(true){
+    vTaskDelayUntil(&xLastWakeTime, 300); // wait for debug messages to pass
+    printf("Oczekiwanie na polaczenie");
+    while(!connected){
         printf(".");
-        xTaskDelayUntil(&xLastWakeTime, 100);
+        vTaskDelayUntil(&xLastWakeTime, 100);
     }
 }
 
@@ -29,21 +31,21 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
         case WIFI_EVENT_STA_CONNECTED:
             ESP_LOGI("Wi-Fi", "Polaczono z siecia wifi.");
             //udp.begin(ConnectivityData.udpBeginPort);
-            if(connected) vTaskDelete(*xDotsHandle);
             disconnectAction = false;
             connected = true;
+            vTaskDelete(xDotsHandle);
             break;
         case WIFI_EVENT_STA_DISCONNECTED:
             if(!disconnectAction){
-                ESP_LOGW("Wi-Fi", "Brak polaczenia z wifi. Laczenie.");
+                ESP_LOGW("Wi-Fi", "Brak polaczenia z wifi. Zatrzymywanie systemu.");
                 //brake();
                 xTaskCreatePinnedToCore(
                     printDotsWhileConnectingToWifi,      // Function that should be called
                     "printDotsWhileConnectingToWifi",    // Name of the task (for debugging)
-                    100000,               // Stack size (bytes)
+                    10000,               // Stack size (bytes)
                     NULL,               // Parameter to pass
                     printDotsWhileConnectingToWifiPriority,                  // Task priority
-                    xDotsHandle,               // Task handle
+                    &xDotsHandle,               // Task handle
                     printDotsWhileConnectingToWifiCore          // Core you want to run the task on (0 or 1)
                 );
                 connected = false;
@@ -55,10 +57,10 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
 }
 
 void connectWifi(){
-    nvs_flash_init();
-    esp_netif_init();
-    esp_event_loop_create_default();     // event loop                    s1.2
-    esp_netif_create_default_wifi_sta(); // WiFi station                      s1.3
+    nvs_flash_init(); // saving wifi data between power cycles, for some reason it's necessary
+    esp_netif_init(); // initialising TCP/IP layer
+    esp_event_loop_create_default();     // creating event loop for handling events
+    esp_netif_create_default_wifi_sta(); // creating wifi station with default settings
     wifi_init_config_t wifiInitiation = WIFI_INIT_CONFIG_DEFAULT();
     esp_wifi_init(&wifiInitiation);
     esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifiEventHandler, NULL);
@@ -67,13 +69,28 @@ void connectWifi(){
         .sta = {
             .ssid = SSID,
             .password = PASSWORD,
-            .failure_retry_cnt = 255,
         }
     };
     esp_wifi_set_config(WIFI_IF_STA, &wifiConfiguration);
     esp_wifi_start();
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_connect();
+
+    // It's a weird way to deal with reconnection, especially given the events that can do the same thing.
+    // The problem is there's an issue causing the wifi to stop connecting after exiting this function (deleting while loop) and attempting to connect in event handler above.
+    // Since the official way (available in documentation) doesn't work, it's necessary to stick to this workaround.
+    // https://www.esp32.com/viewtopic.php?t=25230
+    while(true){
+        vTaskDelay(100);
+        if(!connected){
+            ESP_LOGW("Wi-Fi", "Brak polaczenia z wifi. Restartowanie modulu wifi i ponowne laczenie.");
+            esp_wifi_stop();
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            esp_wifi_start();
+            esp_wifi_connect();
+            while(!connected)vTaskDelay(20);
+        }
+    }
 }
 
 // char* udpReceive(){
