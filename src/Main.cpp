@@ -1,29 +1,24 @@
-#include <Arduino.h>
 #include <Controller.hpp>
 #include <Config.hpp>
 #include <Connectivity.hpp>
 #include <MessageProcessor.hpp>
+#include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
-// setup software
-void setup() {
-  // setup serial interface
-  Serial.begin(9600);
-  Serial.println("\nRozpoczynanie konfiguracji.");
+extern "C" void app_main(void){
+  ESP_LOGI("Setup", "Rozpoczynanie konfiguracji.");
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+
+  // enable printf without \n
+  setvbuf(stdout, NULL, _IONBF, 0);
 
   // setup motors and interrupts
   setupMotors();
 
-  // create tasks
-  // create wifi connection maintenance task
-  xTaskCreatePinnedToCore(
-    maintainWifiConnection,      // Function that should be called
-    "maintainWifiConnection",    // Name of the task (for debugging)
-    10000,               // Stack size (bytes)
-    NULL,               // Parameter to pass
-    maintainWifiConnectionPriority,                  // Task priority
-    NULL,               // Task handle
-    maintainWifiConnectionCore          // Core you want to run the task on (0 or 1)
-  );
+  // start wifi service
+  connectWifi();
+
   // create udp packet receiver task
   xTaskCreatePinnedToCore(
     receiveUDPPacket,      // Function that should be called
@@ -35,9 +30,10 @@ void setup() {
     receiveUDPPacketCore          // Core you want to run the task on (0 or 1)
   );
 
-  Serial.println("\nKonfiguracja zakonczona. Rozpoczynanie dzialania programu.");
-}
+  while(!connected) xTaskDelayUntil(&xLastWakeTime, 20);;
+  ESP_LOGI("Setup","Konfiguracja zakonczona. Rozpoczynanie dzialania programu.");
 
-void loop() {
-  delay(1000);
+  while(true){
+    xTaskDelayUntil(&xLastWakeTime, 20);
+  }
 }

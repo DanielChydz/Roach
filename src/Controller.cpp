@@ -1,5 +1,9 @@
-#include <Arduino.h>
 #include <Config.hpp>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <driver/pulse_cnt.h>
+#include <driver/gpio.h>
+#include <esp_log.h>
 
 uint8_t speed = 0;
 uint8_t firstMotorSpeed = 0;
@@ -24,26 +28,31 @@ void encLeft_leftPin();
 void encLeft_rightPin();
 void attachInterrupts(void *param);
 
-void setStandby(int pin, bool mode){
-  digitalWrite(pin, mode);
+void setStandby(gpio_num_t pin, bool mode){
+  gpio_set_level(pin, mode);
 }
 
 void setupMotors() {
-  Serial.println("Konfiguracja silnikow.");
+  ESP_LOGI("Controller", "Konfiguracja silnikow.");
 
-  pinMode(leftMotor.pin, OUTPUT);
-  pinMode(leftMotor.standby, OUTPUT);
-  pinMode(leftMotor.motorPolarization_IN1, OUTPUT);
-  pinMode(leftMotor.motorPolarization_IN2, OUTPUT);
+  gpio_set_direction(leftMotor.pin, GPIO_MODE_OUTPUT);
+  gpio_set_direction(leftMotor.standby, GPIO_MODE_OUTPUT);
+  gpio_set_direction(leftMotor.motorPolarization_IN1, GPIO_MODE_OUTPUT);
+  gpio_set_direction(leftMotor.motorPolarization_IN2, GPIO_MODE_OUTPUT);
 
-  pinMode(rightMotor.pin, OUTPUT);
-  pinMode(rightMotor.motorPolarization_IN1, OUTPUT);
-  pinMode(rightMotor.motorPolarization_IN2, OUTPUT);
+  gpio_set_direction(rightMotor.pin, GPIO_MODE_OUTPUT);
+  gpio_set_direction(rightMotor.motorPolarization_IN1, GPIO_MODE_OUTPUT);
+  gpio_set_direction(rightMotor.motorPolarization_IN2, GPIO_MODE_OUTPUT);
 
-  setStandby(leftMotor.standby, HIGH);
+  setStandby(leftMotor.standby, true);
 
-  pinMode(leftMotor.encoderLeftPin, INPUT);
-  pinMode(leftMotor.encoderRightPin, INPUT);
+  gpio_set_direction(leftMotor.encoderLeftPin, GPIO_MODE_INPUT);
+  gpio_set_direction(leftMotor.encoderRightPin, GPIO_MODE_INPUT);
+
+  pcnt_unit_config_t unit_config;
+  unit_config.low_limit = -70;
+  unit_config.high_limit = 70;
+  unit_config.flags.accum_count = 1;
 
   xTaskCreatePinnedToCore(
     &attachInterrupts,      // Function that should be called
@@ -57,34 +66,34 @@ void setupMotors() {
 }
 
 // First direction pin, second direction pin, value 0/1.
-void setMotorRotationDir(int firstPin, int secondPin, bool dir){
-  digitalWrite(firstPin, dir); 
-  digitalWrite(secondPin, !dir);
+void setMotorRotationDir(gpio_num_t firstPin, gpio_num_t secondPin, bool dir){
+  gpio_set_level(firstPin, dir); 
+  gpio_set_level(secondPin, !dir);
 }
 
 // PWM pin, speed value 0-255
-void setMotorSpeed(int motor, int speed) {
-  analogWrite(motor, speed);
+void setMotorSpeed(gpio_num_t motor, int speed) {
+  gpio_set_level(motor, speed); // CHANGE ASAP
 }
 
 // First motor speed, second motor speed, values 0-255.
 void setMotorsSpeed(int first, int second){
-  setMotorSpeed(leftMotor.pin, first);
-  setMotorSpeed(rightMotor.pin, second);
+  gpio_set_level(leftMotor.pin, first); // CHANGE ASAP
+  gpio_set_level(rightMotor.pin, second); // CHANGE ASAP
 }
 
 // First motor rotation direction, second motor rotation direction, values 0/1.
-void setMotorsRotationDir(int first, int second){
+void setMotorsRotationDir(bool first, bool second){
   setMotorRotationDir(leftMotor.motorPolarization_IN1, leftMotor.motorPolarization_IN2, first);
   setMotorRotationDir(rightMotor.motorPolarization_IN1, rightMotor.motorPolarization_IN2, second);
 }
 
 void brake(){
   setMotorsSpeed(1, 1);
-  digitalWrite(leftMotor.motorPolarization_IN1, 0);
-  digitalWrite(leftMotor.motorPolarization_IN2, 0);
-  digitalWrite(rightMotor.motorPolarization_IN1, 0);
-  digitalWrite(rightMotor.motorPolarization_IN2, 0);
+  gpio_set_level(leftMotor.motorPolarization_IN1, 0);
+  gpio_set_level(leftMotor.motorPolarization_IN2, 0);
+  gpio_set_level(rightMotor.motorPolarization_IN1, 0);
+  gpio_set_level(rightMotor.motorPolarization_IN2, 0);
 }
 
 void driveVehicle(){
@@ -92,16 +101,16 @@ void driveVehicle(){
 }
 
 void attachInterrupts(void *param){
-  attachInterrupt(leftMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
-  attachInterrupt(leftMotor.encoderRightPin, encLeft_rightPin, CHANGE);
+  // attachInterrupt(leftMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
+  // attachInterrupt(leftMotor.encoderRightPin, encLeft_rightPin, CHANGE);
 
-  attachInterrupt(rightMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
-  attachInterrupt(rightMotor.encoderRightPin, encLeft_rightPin, CHANGE);
+  // attachInterrupt(rightMotor.encoderLeftPin, encLeft_leftPin, CHANGE);
+  // attachInterrupt(rightMotor.encoderRightPin, encLeft_rightPin, CHANGE);
   vTaskDelete(NULL); // would be good to move it outside the task in final version
 }
 
 void encLeft_leftPin(){
-  leftEncoder_leftPin = digitalRead(leftMotor.encoderLeftPin);
+  leftEncoder_leftPin = gpio_get_level(leftMotor.encoderLeftPin);
   if((!leftEncoder_leftPin && !leftEncoder_rightPin) || (leftEncoder_leftPin && leftEncoder_rightPin)){
     leftEncoder--;
   } else if((!leftEncoder_leftPin && leftEncoder_rightPin) || (leftEncoder_leftPin && !leftEncoder_rightPin)) {
@@ -119,7 +128,7 @@ void encLeft_leftPin(){
 }
 
 void encLeft_rightPin(){
-  leftEncoder_rightPin = digitalRead(leftMotor.encoderRightPin);
+  leftEncoder_rightPin = gpio_get_level(leftMotor.encoderRightPin);
   if(!leftEncoder_leftPin && leftEncoder_rightPin){
     leftEncoder--;
   } else if(leftEncoder_leftPin && !leftEncoder_rightPin) {
@@ -136,8 +145,8 @@ void encLeft_rightPin(){
   }
 }
 
-void encRight_leftPin(){rightEncoder_leftPin = digitalRead(rightMotor.encoderLeftPin);}
-void encRight_rightPin(){rightEncoder_rightPin = digitalRead(rightMotor.encoderRightPin);}
+void encRight_leftPin(){rightEncoder_leftPin = gpio_get_level(rightMotor.encoderLeftPin);}
+void encRight_rightPin(){rightEncoder_rightPin = gpio_get_level(rightMotor.encoderRightPin);}
 
 /*
 Function inteded mainly for debugging purposes.

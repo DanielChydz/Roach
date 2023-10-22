@@ -1,13 +1,12 @@
 #include <ctype.h> // isdigit
-#include <Arduino.h>
 #include <Config.hpp>
 #include <Controller.hpp>
+#include <string.h> // strcmp
 
 int getValue(char* msg);
 int getKey(char* msg);
 
 void processMessage(char* msg){
-    char* origMsg = msg;
     char* newMsg = msg;
     int key = getKey(msg);
     if(key) return;

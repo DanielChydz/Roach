@@ -1,18 +1,20 @@
+#include <driver/gpio.h>
+
 extern uint8_t speed, firstMotorSpeed, secondMotorSpeed, command;
 
 void setupMotors();
 
-void setMotorRotationDir(int firstPin, int secondPin, bool dir);
-void setMotorSpeed(int motor, int speed);
-void setStandby(int pin, bool mode);
+void setMotorRotationDir(gpio_num_t firstPin, gpio_num_t secondPin, bool dir);
+void setMotorSpeed(gpio_num_t motor, int speed);
+void setStandby(gpio_num_t pin, bool mode);
 void driveVehicle();
 void brake();
 
 // First motor rotation direction, second motor rotation direction, values 0/1.
-void setMotorsSpeed(int first, int second);
+void setMotorsSpeed(bool first, bool second);
 
 // First motor rotation direction, second motor rotation direction, values 0/1.
-void setMotorsRotationDir(int first, int second);
+void setMotorsRotationDir(bool first, bool second);
 
 /*
 Function inteded mainly for debugging purposes.
