@@ -19,18 +19,7 @@ extern "C" void app_main(void){
   // start wifi service
   connectWifi();
 
-  // create udp packet receiver task
-  xTaskCreatePinnedToCore(
-    receiveUDPPacket,      // Function that should be called
-    "receiveUDPPacket",    // Name of the task (for debugging)
-    10000,               // Stack size (bytes)
-    NULL,               // Parameter to pass
-    receiveUDPPacketPriority,                  // Task priority
-    NULL,               // Task handle
-    receiveUDPPacketCore          // Core you want to run the task on (0 or 1)
-  );
-
-  while(!connected) xTaskDelayUntil(&xLastWakeTime, 20);;
+  while(!connected) xTaskDelayUntil(&xLastWakeTime, 20);
   ESP_LOGI("Setup","Konfiguracja zakonczona. Rozpoczynanie dzialania programu.");
 
   while(true){

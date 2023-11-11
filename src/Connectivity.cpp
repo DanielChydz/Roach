@@ -9,11 +9,27 @@
 #include <esp_event.h>
 #include <nvs_flash.h>
 
+#include <string.h>
+#include <sys/param.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_system.h"
+#include "esp_netif.h"
+
+#include "lwip/err.h"
+#include "lwip/sockets.h"
+#include "lwip/sys.h"
+#include <lwip/netdb.h>
+
 bool disconnectAction = false;
 bool connected = false;
 bool dots = false;
 
 TaskHandle_t xDotsHandle;
+TaskHandle_t xUDPHandle;
+
+void UDPClient(void *params);
 
 // task, I think the name is self explanatory
 void printDotsWhileConnectingToWifi(void *param){
@@ -26,18 +42,28 @@ void printDotsWhileConnectingToWifi(void *param){
     }
 }
 
-static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,void *event_data){
+static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data){
     switch(event_id){
         case WIFI_EVENT_STA_CONNECTED:
             ESP_LOGI("Wi-Fi", "Polaczono z siecia wifi.");
-            //udp.begin(ConnectivityData.udpBeginPort);
             disconnectAction = false;
             connected = true;
             vTaskDelete(xDotsHandle);
+
+            xTaskCreatePinnedToCore(
+                UDPClient,      // Function that should be called
+                "UDPClient",    // Name of the task (for debugging)
+                10000,               // Stack size (bytes)
+                NULL,               // Parameter to pass
+                UDPClientPriority,                  // Task priority
+                &xUDPHandle,               // Task handle
+                UDPClientCore          // Core you want to run the task on (0 or 1)
+            );
             break;
         case WIFI_EVENT_STA_DISCONNECTED:
             if(!disconnectAction){
                 ESP_LOGW("Wi-Fi", "Brak polaczenia z wifi. Zatrzymywanie systemu.");
+                if(connected) vTaskDelete(xUDPHandle); // prevent from deleting null task
                 //brake();
                 xTaskCreatePinnedToCore(
                     printDotsWhileConnectingToWifi,      // Function that should be called
@@ -93,32 +119,67 @@ void connectWifi(){
     }
 }
 
-// char* udpReceive(){
-//     char* packetBuffer = new char[256];
-//     //int packetSize = udp.parsePacket();
-//     int length;
-//     // if(packetSize){
-//     //     length = udp.read(packetBuffer, 255);
-//     //     if(length >= 0 ) packetBuffer[length] = '\0';
-//     }
-//     return packetBuffer;
-// }
 
-// task for receiving UDP packets
-void receiveUDPPacket(void *params){
+// task for handling UDP client socket
+void UDPClient(void *params){
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    while(true){
-        // char *pMsg = udpReceive();
-        // if(*pMsg != 0) processMessage(pMsg);
-        // delete[] pMsg;
-        xTaskDelayUntil(&xLastWakeTime, receiveUDPPacketDelay);
-    }
-}
+    char rx_buffer[128];
+    char host_ip[] = "192.168.220.201";
+    int port = 4322;
+    int addr_family = 0;
+    int ip_protocol = 0;
 
-void udpSend(char bufferSend[]){
-    //udp.beginPacket(ConnectivityData.udpSendAddress, ConnectivityData.udpSendPort);
-    //udp.print(bufferSend);
-    //udp.endPacket();
+    while (1) {
+        struct sockaddr_in dest_addr;
+        dest_addr.sin_addr.s_addr = inet_addr("192.168.220.201");
+        dest_addr.sin_family = AF_INET;
+        dest_addr.sin_port = htons(port);
+        addr_family = AF_INET;
+        ip_protocol = IPPROTO_IP;
+
+        int sock = socket(addr_family, SOCK_DGRAM, ip_protocol);
+        if(sock < 0) break;
+
+        // Set timeout
+        struct timeval timeout;
+        timeout.tv_sec = 3;
+        timeout.tv_usec = 0;
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout);
+
+        ESP_LOGI("UDP", "Gniazdo UDP utworzone, wysylanie do %s:%d", host_ip, port);
+
+        while (1) {
+            int err = sendto(sock, "wiadomosc", strlen("wiadomosc"), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+            if (err < 0) ESP_LOGE("UDP", "Blad podczas wysylania pakietu.");
+
+            struct sockaddr_storage source_addr;
+            socklen_t socklen = sizeof(source_addr);
+            int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
+
+            // Error occurred during receiving
+            if (len < 0) {
+                ESP_LOGE("UDP", "Nie otrzymano pakietu lub wystapil blad przy odbieraniu.");
+                break;
+                // Data received
+            } else {
+                rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
+                // processMessage(pMsg);
+                ESP_LOGI("test", "Received %d bytes from %s:", len, host_ip);
+                ESP_LOGI("test", "%s", rx_buffer);
+                if (strncmp(rx_buffer, "OK: ", 4) == 0) {
+                    ESP_LOGI("UDP", "Otrzymano slowo-klucz, ponowne laczenie");
+                    break;
+                }
+            }
+            xTaskDelayUntil(&xLastWakeTime, UDPClientDelay);
+        }
+
+        if (sock != -1) {
+            ESP_LOGE("UDP", "Zamykanie gniazda i ponowne laczenie.");
+            shutdown(sock, 0);
+            close(sock);
+        }
+    }
 }
 
 
@@ -130,6 +191,6 @@ void udpPrepareMessage(int subject){
     messageBufferString.append(to_string(123).substr(0, 5));
     messageBufferString.append("2");
     strcpy(messageBuffer, messageBufferString.c_str());
-    udpSend(messageBuffer);
+    // udpSend(messageBuffer);
     messageBufferString = "";
 }

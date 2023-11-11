@@ -11,10 +11,10 @@ const uint8_t udpReceiveDelay = 32; // 32ms = 30 fps
 const uint16_t printDotsWhileConnectingToWifiDelay = 1000; // delay, ms
 const uint8_t printDotsWhileConnectingToWifiPriority = 5; // priority
 const bool printDotsWhileConnectingToWifiCore = 1; // core, 0-1
-// UDP packet receiver task
-const uint16_t receiveUDPPacketDelay = 50; // delay, ms
-const uint8_t receiveUDPPacketPriority = 2; // priority
-const bool receiveUDPPacketCore = 1; // core, 0-1
+// UDP client task
+const uint16_t UDPClientDelay = 200; // delay, ms
+const uint8_t UDPClientPriority = 2; // priority
+const bool UDPClientCore = 1; // core, 0-1
 // attaching interrupts task, no delay due to the task not having a loop
 const uint8_t attachInterruptsPriority = 1; // priority
 const bool attachInterruptsCore = 0; // core, 0-1
