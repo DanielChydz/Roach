@@ -29,7 +29,8 @@ bool dots = false;
 TaskHandle_t xDotsHandle;
 TaskHandle_t xUDPHandle;
 
-void UDPClient(void *params);
+void udp_server_task(void *pvParameters);
+void udp_client_task(void *pvParameters);
 
 // task, I think the name is self explanatory
 void printDotsWhileConnectingToWifi(void *param){
@@ -51,7 +52,16 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
             vTaskDelete(xDotsHandle);
 
             xTaskCreatePinnedToCore(
-                UDPClient,      // Function that should be called
+                udp_server_task,      // Function that should be called
+                "UDPServer",    // Name of the task (for debugging)
+                10000,               // Stack size (bytes)
+                NULL,               // Parameter to pass
+                UDPClientPriority,                  // Task priority
+                &xUDPHandle,               // Task handle
+                UDPClientCore          // Core you want to run the task on (0 or 1)
+            );
+            xTaskCreatePinnedToCore(
+                udp_client_task,      // Function that should be called
                 "UDPClient",    // Name of the task (for debugging)
                 10000,               // Stack size (bytes)
                 NULL,               // Parameter to pass
@@ -121,65 +131,85 @@ void connectWifi(){
 
 
 // task for handling UDP client socket
-void UDPClient(void *params){
-    TickType_t xLastWakeTime = xTaskGetTickCount();
+void udp_server_task(void *pvParameters) {
     char rx_buffer[128];
-    char host_ip[] = "192.168.220.201";
-    int port = 4322;
-    int addr_family = 0;
-    int ip_protocol = 0;
+    struct sockaddr_in server_addr;
+    struct sockaddr_in client_addr;
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    int addr_family = AF_INET;
+    int ip_protocol = IPPROTO_IP;
+
+    if (sock < 0) {
+        ESP_LOGE("UDPS", "Unable to create socket: errno %d", errno);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(4321);
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        ESP_LOGE("UDPS", "Socket unable to bind: errno %d", errno);
+        vTaskDelete(NULL);
+        return;
+    }
 
     while (1) {
-        struct sockaddr_in dest_addr;
-        dest_addr.sin_addr.s_addr = inet_addr("192.168.220.201");
-        dest_addr.sin_family = AF_INET;
-        dest_addr.sin_port = htons(port);
-        addr_family = AF_INET;
-        ip_protocol = IPPROTO_IP;
+        ESP_LOGI("UDPS", "Waiting for data");
+        socklen_t addr_len = sizeof(client_addr);
+        int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&client_addr, &addr_len);
 
-        int sock = socket(addr_family, SOCK_DGRAM, ip_protocol);
-        if(sock < 0) break;
-
-        // Set timeout
-        struct timeval timeout;
-        timeout.tv_sec = 3;
-        timeout.tv_usec = 0;
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout);
-
-        ESP_LOGI("UDP", "Gniazdo UDP utworzone, wysylanie do %s:%d", host_ip, port);
-
-        while (1) {
-            int err = sendto(sock, "wiadomosc", strlen("wiadomosc"), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-            if (err < 0) ESP_LOGE("UDP", "Blad podczas wysylania pakietu.");
-
-            struct sockaddr_storage source_addr;
-            socklen_t socklen = sizeof(source_addr);
-            int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
-
-            // Error occurred during receiving
-            if (len < 0) {
-                ESP_LOGE("UDP", "Nie otrzymano pakietu lub wystapil blad przy odbieraniu.");
-                break;
-                // Data received
-            } else {
-                rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                // processMessage(pMsg);
-                ESP_LOGI("test", "Received %d bytes from %s:", len, host_ip);
-                ESP_LOGI("test", "%s", rx_buffer);
-                if (strncmp(rx_buffer, "OK: ", 4) == 0) {
-                    ESP_LOGI("UDP", "Otrzymano slowo-klucz, ponowne laczenie");
-                    break;
-                }
-            }
-            xTaskDelayUntil(&xLastWakeTime, UDPClientDelay);
-        }
-
-        if (sock != -1) {
-            ESP_LOGE("UDP", "Zamykanie gniazda i ponowne laczenie.");
-            shutdown(sock, 0);
-            close(sock);
+        if (len < 0) {
+            ESP_LOGE("UDPS", "recvfrom failed: errno %d", errno);
+            break;
+        } else {
+            rx_buffer[len] = 0;
+            ESP_LOGI("UDPS", "Received %d bytes from %s:", len, inet_ntoa(client_addr.sin_addr));
+            ESP_LOGI("UDPS", "%s", rx_buffer);
         }
     }
+
+    if (sock != -1) {
+        ESP_LOGE("UDPS", "Shutting down socket and restarting...");
+        shutdown(sock, 0);
+        close(sock);
+    }
+    vTaskDelete(NULL);
+}
+
+void udp_client_task(void *pvParameters) {
+    struct sockaddr_in dest_addr;
+    dest_addr.sin_addr.s_addr = inet_addr("192.168.220.201");
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(4322);
+
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        ESP_LOGE("UDPC", "Unable to create socket: errno %d", errno);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    while (1) {
+        const char *message = "Hello, UDP server!";
+        int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+        if (err < 0) {
+            ESP_LOGE("UDPC", "Error occurred during sending: errno %d", errno);
+        } else {
+            ESP_LOGI("UDPC", "Message sent to server");
+        }
+
+        vTaskDelay(2000 / portTICK_PERIOD_MS);  // Send message every 2 seconds
+    }
+
+    if (sock != -1) {
+        ESP_LOGE("UDPC", "Shutting down socket and restarting...");
+        shutdown(sock, 0);
+        close(sock);
+    }
+    vTaskDelete(NULL);
 }
 
 
