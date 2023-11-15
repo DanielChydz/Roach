@@ -136,8 +136,6 @@ void udp_server_task(void *pvParameters) {
     struct sockaddr_in server_addr;
     struct sockaddr_in client_addr;
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    int addr_family = AF_INET;
-    int ip_protocol = IPPROTO_IP;
 
     if (sock < 0) {
         ESP_LOGE("UDPS", "Unable to create socket: errno %d", errno);
