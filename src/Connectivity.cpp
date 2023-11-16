@@ -27,10 +27,13 @@ bool connected = false;
 bool dots = false;
 
 TaskHandle_t xDotsHandle;
-TaskHandle_t xUDPHandle;
+TaskHandle_t xUDPServerHandle;
+TaskHandle_t xUDPClientHandle;
+TaskHandle_t xWifiServiceHandle;
 
 void udp_server_task(void *pvParameters);
 void udp_client_task(void *pvParameters);
+void wifiServiceTask(void *pvParameters);
 
 // task, I think the name is self explanatory
 void printDotsWhileConnectingToWifi(void *param){
@@ -39,7 +42,7 @@ void printDotsWhileConnectingToWifi(void *param){
     printf("Oczekiwanie na polaczenie");
     while(!connected){
         printf(".");
-        vTaskDelayUntil(&xLastWakeTime, 100);
+        vTaskDelayUntil(&xLastWakeTime, printDotsWhileConnectingToWifiDelay / portTICK_PERIOD_MS);
     }
 }
 
@@ -50,30 +53,10 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
             disconnectAction = false;
             connected = true;
             vTaskDelete(xDotsHandle);
-
-            xTaskCreatePinnedToCore(
-                udp_server_task,      // Function that should be called
-                "UDPServer",    // Name of the task (for debugging)
-                10000,               // Stack size (bytes)
-                NULL,               // Parameter to pass
-                UDPClientPriority,                  // Task priority
-                &xUDPHandle,               // Task handle
-                UDPClientCore          // Core you want to run the task on (0 or 1)
-            );
-            xTaskCreatePinnedToCore(
-                udp_client_task,      // Function that should be called
-                "UDPClient",    // Name of the task (for debugging)
-                10000,               // Stack size (bytes)
-                NULL,               // Parameter to pass
-                UDPClientPriority,                  // Task priority
-                &xUDPHandle,               // Task handle
-                UDPClientCore          // Core you want to run the task on (0 or 1)
-            );
             break;
         case WIFI_EVENT_STA_DISCONNECTED:
             if(!disconnectAction){
                 ESP_LOGW("Wi-Fi", "Brak polaczenia z wifi. Zatrzymywanie systemu.");
-                if(connected) vTaskDelete(xUDPHandle); // prevent from deleting null task
                 //brake();
                 xTaskCreatePinnedToCore(
                     printDotsWhileConnectingToWifi,      // Function that should be called
@@ -92,7 +75,38 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
     }
 }
 
-void connectWifi(){
+void startWifiService(){
+    xTaskCreatePinnedToCore(
+        wifiServiceTask,      // Function that should be called
+        "connectWifiTask",    // Name of the task (for debugging)
+        10000,               // Stack size (bytes)
+        NULL,               // Parameter to pass
+        wifiServicePriority,                  // Task priority
+        &xWifiServiceHandle,               // Task handle
+        wifiServiceCore          // Core you want to run the task on (0 or 1)
+    );
+    xTaskCreatePinnedToCore(
+        udp_server_task,      // Function that should be called
+        "UDPServer",    // Name of the task (for debugging)
+        10000,               // Stack size (bytes)
+        NULL,               // Parameter to pass
+        udpServerPriority,                  // Task priority
+        &xUDPServerHandle,               // Task handle
+        udpServerCore          // Core you want to run the task on (0 or 1)
+    );
+    xTaskCreatePinnedToCore(
+        udp_client_task,      // Function that should be called
+        "UDPClient",    // Name of the task (for debugging)
+        10000,               // Stack size (bytes)
+        NULL,               // Parameter to pass
+        udpClientPriority,                  // Task priority
+        &xUDPClientHandle,               // Task handle
+        udpClientCore          // Core you want to run the task on (0 or 1)
+    );
+}
+
+void wifiServiceTask(void *pvParameters){
+    TickType_t xLastWakeTime = xTaskGetTickCount();
     nvs_flash_init(); // saving wifi data between power cycles, for some reason it's necessary
     esp_netif_init(); // initialising TCP/IP layer
     esp_event_loop_create_default();     // creating event loop for handling events
@@ -113,24 +127,24 @@ void connectWifi(){
     esp_wifi_connect();
 
     // It's a weird way to deal with reconnection, especially given the events that can do the same thing.
-    // The problem is there's an issue causing the wifi to stop connecting after exiting this function (deleting while loop) and attempting to connect in event handler above.
+    // The problem is there's an issue causing the wifi to stop connecting after exiting wifiServiceTask function (deleting while loop) and attempting to connect in event handler above.
     // Since the official way (available in documentation) doesn't work, it's necessary to stick to this workaround.
     // https://www.esp32.com/viewtopic.php?t=25230
     while(true){
-        vTaskDelay(100);
         if(!connected){
             ESP_LOGW("Wi-Fi", "Brak polaczenia z wifi. Restartowanie modulu wifi i ponowne laczenie.");
             esp_wifi_stop();
             vTaskDelay(1000 / portTICK_PERIOD_MS);
             esp_wifi_start();
             esp_wifi_connect();
-            while(!connected)vTaskDelay(20);
+            while(!connected) vTaskDelayUntil(&xLastWakeTime, wifiServiceWaitForConnectionDelay / portTICK_PERIOD_MS);
         }
+        vTaskDelayUntil(&xLastWakeTime, wifiServiceCheckConnectionDelay / portTICK_PERIOD_MS);
     }
 }
 
 
-// task for handling UDP client socket
+// task for handling UDP server
 void udp_server_task(void *pvParameters) {
     char rx_buffer[128];
     struct sockaddr_in server_addr;
@@ -138,7 +152,7 @@ void udp_server_task(void *pvParameters) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (sock < 0) {
-        ESP_LOGE("UDPS", "Unable to create socket: errno %d", errno);
+        ESP_LOGE("UDP Server", "Nie mozna utworzyc gniazda, nr bledu: %d. Uruchom ponownie ESP32.", errno);
         vTaskDelete(NULL);
         return;
     }
@@ -149,43 +163,43 @@ void udp_server_task(void *pvParameters) {
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        ESP_LOGE("UDPS", "Socket unable to bind: errno %d", errno);
+        ESP_LOGE("UDP Server", "Nie mozna przypiąć IP i portu do gniazda, nr bledu: %d. Uruchom ponownie ESP32.", errno);
         vTaskDelete(NULL);
         return;
     }
 
     while (1) {
-        ESP_LOGI("UDPS", "Waiting for data");
+        ESP_LOGI("UDP Server", "Oczekiwanie na pakiet danych.");
         socklen_t addr_len = sizeof(client_addr);
         int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *)&client_addr, &addr_len);
 
         if (len < 0) {
-            ESP_LOGE("UDPS", "recvfrom failed: errno %d", errno);
+            ESP_LOGE("UDP Server", "Blad przy odbieraniu pakietu, nr bledu: %d", errno);
             break;
         } else {
             rx_buffer[len] = 0;
-            ESP_LOGI("UDPS", "Received %d bytes from %s:", len, inet_ntoa(client_addr.sin_addr));
-            ESP_LOGI("UDPS", "%s", rx_buffer);
+            ESP_LOGI("UDP Server", "%s", rx_buffer);
         }
     }
 
     if (sock != -1) {
-        ESP_LOGE("UDPS", "Shutting down socket and restarting...");
+        ESP_LOGE("UDP Server", "Wystapil blad gniazda, uruchom ponownie ESP32.");
         shutdown(sock, 0);
         close(sock);
     }
     vTaskDelete(NULL);
 }
 
+// task for handling UDP client
 void udp_client_task(void *pvParameters) {
     struct sockaddr_in dest_addr;
-    dest_addr.sin_addr.s_addr = inet_addr("192.168.220.201");
+    dest_addr.sin_addr.s_addr = inet_addr(ConnectivityData.udpSendAddress);
     dest_addr.sin_family = AF_INET;
     dest_addr.sin_port = htons(4322);
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
-        ESP_LOGE("UDPC", "Unable to create socket: errno %d", errno);
+        ESP_LOGE("UDP Client", "Nie mozna utworzyc gniazda, nr bledu: %d. Uruchom ponownie ESP32.", errno);
         vTaskDelete(NULL);
         return;
     }
@@ -194,16 +208,18 @@ void udp_client_task(void *pvParameters) {
         const char *message = "Hello, UDP server!";
         int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
         if (err < 0) {
-            ESP_LOGE("UDPC", "Error occurred during sending: errno %d", errno);
+            ESP_LOGE("UDP Client", "Blad przy wysylaniu pakietu, nr bledu: %d", errno);
         } else {
-            ESP_LOGI("UDPC", "Message sent to server");
+            ESP_LOGI("UDP Client", "Wyslano pakiet danych.");
         }
 
-        vTaskDelay(2000 / portTICK_PERIOD_MS);  // Send message every 2 seconds
+        // TODO: make the loop only send data when there's actually something to send. Don't loop pointlessly.
+        // One of the possible solutions is using vTaskSuspend and vTaskResume.
+        vTaskDelay(udpClientDelay / portTICK_PERIOD_MS);
     }
 
     if (sock != -1) {
-        ESP_LOGE("UDPC", "Shutting down socket and restarting...");
+        ESP_LOGE("UDP Client", "Wystapil blad gniazda, uruchom ponownie ESP32.");
         shutdown(sock, 0);
         close(sock);
     }

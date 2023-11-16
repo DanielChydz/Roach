@@ -15,9 +15,9 @@ extern "C" void app_main(void){
 
   // setup motors and interrupts
   setupMotors();
-
-  // start wifi service
-  connectWifi();
+  
+  // setup wifi
+  startWifiService();
 
   while(!connected) xTaskDelayUntil(&xLastWakeTime, 20);
   ESP_LOGI("Setup","Konfiguracja zakonczona. Rozpoczynanie dzialania programu.");
