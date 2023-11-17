@@ -25,6 +25,7 @@
 bool disconnectAction = false;
 bool connected = false;
 bool dots = false;
+bool firstBoot = true;
 
 TaskHandle_t xDotsHandle;
 TaskHandle_t xUDPServerHandle;
@@ -35,7 +36,7 @@ void udp_server_task(void *pvParameters);
 void udp_client_task(void *pvParameters);
 void wifiServiceTask(void *pvParameters);
 
-// task, I think the name is self explanatory
+// task printing dots to the console when waiting for the wifi to connect
 void printDotsWhileConnectingToWifi(void *param){
     TickType_t xLastWakeTime = xTaskGetTickCount();
     vTaskDelayUntil(&xLastWakeTime, 300); // wait for debug messages to pass
@@ -51,13 +52,25 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
         case WIFI_EVENT_STA_CONNECTED:
             ESP_LOGI("Wi-Fi", "Polaczono z siecia wifi.");
             disconnectAction = false;
-            connected = true;
             vTaskDelete(xDotsHandle);
+            break;
+        case WIFI_EVENT_WIFI_READY:
+            ESP_LOGI("Wi-Fi", "Wifi gotowe do dzialania.");
+            connected = true;
+            if(!firstBoot){
+                vTaskResume(xUDPClientHandle);
+                vTaskResume(xUDPServerHandle);
+            }
+            if(firstBoot) firstBoot = false;
             break;
         case WIFI_EVENT_STA_DISCONNECTED:
             if(!disconnectAction){
                 ESP_LOGW("Wi-Fi", "Brak polaczenia z wifi. Zatrzymywanie systemu.");
                 //brake();
+                if(connected){
+                    vTaskSuspend(xUDPClientHandle);
+                    vTaskSuspend(xUDPServerHandle);
+                }
                 xTaskCreatePinnedToCore(
                     printDotsWhileConnectingToWifi,      // Function that should be called
                     "printDotsWhileConnectingToWifi",    // Name of the task (for debugging)
@@ -75,6 +88,7 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
     }
 }
 
+// start wifi and udp tasks
 void startWifiService(){
     xTaskCreatePinnedToCore(
         wifiServiceTask,      // Function that should be called
@@ -85,6 +99,7 @@ void startWifiService(){
         &xWifiServiceHandle,               // Task handle
         wifiServiceCore          // Core you want to run the task on (0 or 1)
     );
+    while(!connected) vTaskDelay(10);
     xTaskCreatePinnedToCore(
         udp_server_task,      // Function that should be called
         "UDPServer",    // Name of the task (for debugging)
@@ -105,6 +120,7 @@ void startWifiService(){
     );
 }
 
+// task maintaining wifi connection
 void wifiServiceTask(void *pvParameters){
     TickType_t xLastWakeTime = xTaskGetTickCount();
     nvs_flash_init(); // saving wifi data between power cycles, for some reason it's necessary
@@ -159,7 +175,7 @@ void udp_server_task(void *pvParameters) {
 
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(4321);
+    server_addr.sin_port = htons(ConnectivityData.udpReceivePort);
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
@@ -195,7 +211,7 @@ void udp_client_task(void *pvParameters) {
     struct sockaddr_in dest_addr;
     dest_addr.sin_addr.s_addr = inet_addr(ConnectivityData.udpSendAddress);
     dest_addr.sin_family = AF_INET;
-    dest_addr.sin_port = htons(4322);
+    dest_addr.sin_port = htons(ConnectivityData.udpSendPort);
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -226,8 +242,8 @@ void udp_client_task(void *pvParameters) {
     vTaskDelete(NULL);
 }
 
-
-void udpPrepareMessage(int subject){
+// prepare udp payload before sending
+void udpPreparePayload(int subject){
     char messageBuffer[256];
     string messageBufferString;
 
