@@ -1,6 +1,6 @@
 #include <driver/gpio.h>
 
-extern uint8_t speed, firstMotorSpeed, secondMotorSpeed, command;
+extern uint8_t speed, firstMotorSpeed, secondMotorSpeed;
 
 void setupMotors();
 

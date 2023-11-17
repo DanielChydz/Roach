@@ -194,7 +194,8 @@ void udp_server_task(void *pvParameters) {
             break;
         } else {
             rx_buffer[len] = 0;
-            ESP_LOGI("UDP Server", "%s", rx_buffer);
+            ESP_LOGI("UDP Server", "Odebrano pakiet: %s", rx_buffer);
+            processMessage(rx_buffer);
         }
     }
 

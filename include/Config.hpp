@@ -48,7 +48,7 @@ struct{ // 2nd motor
 } rightMotor;
 
 struct{
-    const char* udpSendAddress = "192.168.220.201";
+    char* udpSendAddress = "192.168.220.201";
     const uint16_t udpSendPort = 4322;
     const uint16_t udpReceivePort = 4321;
 } ConnectivityData;

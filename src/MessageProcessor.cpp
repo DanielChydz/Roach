@@ -2,8 +2,9 @@
 #include <Config.hpp>
 #include <Controller.hpp>
 #include <string.h> // strcmp
+#include <vector>
 
-int getValue(char* msg);
+vector<char> getValue(char* msg);
 int getKey(char* msg);
 
 void processMessage(char* msg){
@@ -12,30 +13,37 @@ void processMessage(char* msg){
     if(key) return;
     for(int i = 0; i < 17; i++) newMsg++; // 17 should be calculated on the go instead of hard coded
 
-    while (*newMsg!='E')
+    while (*newMsg != 'E')
     {
         switch(*newMsg){
-            // forward
-            case 'P':
+            // IP
+            case 'I':
                 newMsg++;
-                //angle = getValue(newMsg);
+                ConnectivityData.udpSendAddress = reinterpret_cast<char*>(getValue(newMsg).data());;
+                printf(ConnectivityData.udpSendAddress);
                 break;
-            // backwards
-            case 'T' || 'B':
+            // both wheels
+            case 'B' || 'B':
                 newMsg++;
                 //speed = getValue(newMsg);
                 break;
-            // right
-            case 'R':
-                newMsg++;
-                // = getValue(newMsg);
-                break;
-            // left
+            // left wheel
             case 'L':
                 newMsg++;
                 // = getValue(newMsg);
                 break;
+            // right wheel
+            case 'R':
+                newMsg++;
+                // = getValue(newMsg);
+                break;
+            // speed
             case 'S':
+                newMsg++;
+                // = getValue(newMsg);
+                break;
+            // unit
+            case 'U':
                 newMsg++;
                 // = getValue(newMsg);
             default:
@@ -44,17 +52,19 @@ void processMessage(char* msg){
         newMsg++;
     }
 
-    driveVehicle();
+    // driveVehicle();
 }
 
 // extract values from data
-int getValue(char* msg){
+vector<char> getValue(char* msg){
+    vector<char> val_test;
     int val=0;
-    while (isdigit(*msg)){
-        val=(val*10)+(*msg-'0');
+    while (isdigit(*msg) || *msg == '.'){
+        //val=(val*10)+(*msg-'0');
+        val_test.push_back(*msg);
         msg++;
     }
-    return val;
+    return val_test;
 }
 
 // check if data contains key word
