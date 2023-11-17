@@ -40,7 +40,7 @@ void wifiServiceTask(void *pvParameters);
 void printDotsWhileConnectingToWifi(void *param){
     TickType_t xLastWakeTime = xTaskGetTickCount();
     vTaskDelayUntil(&xLastWakeTime, 300); // wait for debug messages to pass
-    printf("Oczekiwanie na polaczenie");
+    printf("Oczekiwanie na polaczenie z wifi");
     while(!connected){
         printf(".");
         vTaskDelayUntil(&xLastWakeTime, printDotsWhileConnectingToWifiDelay / portTICK_PERIOD_MS);
