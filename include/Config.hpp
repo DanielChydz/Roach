@@ -29,7 +29,7 @@ const bool attachInterruptsCore = 0; // core, 0-1
 
 const uint16_t pulsesPerRotation = 1400;
 
-struct{ // 1st motor
+struct{ // left motor
     const gpio_num_t pin = GPIO_NUM_25; // PWM
     const gpio_num_t motorPolarization_IN1 = GPIO_NUM_26; // polarization 1
     const gpio_num_t motorPolarization_IN2 = GPIO_NUM_27; // polarization 2
@@ -38,7 +38,7 @@ struct{ // 1st motor
     const gpio_num_t encoderRightPin = GPIO_NUM_33;
 } leftMotor;
 
-struct{ // 2nd motor
+struct{ // right motor
     const gpio_num_t pin = GPIO_NUM_0; // PWM
     const gpio_num_t motorPolarization_IN1 = GPIO_NUM_4; // polarization 1
     const gpio_num_t motorPolarization_IN2 = GPIO_NUM_16; // polarization 2
@@ -48,7 +48,7 @@ struct{ // 2nd motor
 } rightMotor;
 
 struct{
-    char* udpSendAddress = "192.168.220.201";
+    const char* udpSendAddress = "192.168.220.201";
     const uint16_t udpSendPort = 4322;
     const uint16_t udpReceivePort = 4321;
 } ConnectivityData;

@@ -1,6 +1,8 @@
 #include <driver/gpio.h>
 
-extern uint8_t speed, firstMotorSpeed, secondMotorSpeed;
+extern uint8_t speedSetPoint, leftMotorSpeed, rightMotorSpeed;
+extern int32_t bothWheelsValue, leftWheelValue, rightWheelValue;
+extern bool leftMotorDir, rightMotorDir, unit;
 
 void setupMotors();
 

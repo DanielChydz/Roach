@@ -5,13 +5,15 @@
 #include <driver/gpio.h>
 #include <esp_log.h>
 
-uint8_t speed = 0;
-uint8_t firstMotorSpeed = 0;
-uint8_t secondMotorSpeed = 0;
-uint8_t command = 0;
-float distance = 0;
-bool firstMotorDir = 0;
-bool secondMotorDir = 0;
+int32_t bothWheelsValue = 0;
+int32_t leftWheelValue = 0;
+int32_t rightWheelValue = 0;
+uint8_t speedSetPoint = 0;
+uint8_t leftMotorSpeed = 0;
+uint8_t rightMotorSpeed = 0;
+bool leftMotorDir = 0;
+bool rightMotorDir = 0;
+bool unit = 0;
 
 int leftEncoder = 0;
 int rightEncoder = 0;
@@ -97,7 +99,15 @@ void brake(){
 }
 
 void driveVehicle(){
-  // T.B.C.
+  ESP_LOGI("Controller", "Oba kola: %d", (int)bothWheelsValue);
+  ESP_LOGI("Controller", "Lewe kolo: %d", (int)leftWheelValue);
+  ESP_LOGI("Controller", "Prawe kolo: %d", (int)rightWheelValue);
+  ESP_LOGI("Controller", "Predkosc: %d", (int)speedSetPoint);
+  ESP_LOGI("Controller", "Predkosc lewego kola: %d", (int)leftMotorSpeed);
+  ESP_LOGI("Controller", "Predkosc prawego kola: %d", (int)rightMotorSpeed);
+  ESP_LOGI("Controller", "Kierunek lewego kola: %d", (int)leftMotorDir);
+  ESP_LOGI("Controller", "Kierunek prawego kola: %d", (int)rightMotorDir);
+  ESP_LOGI("Controller", "Jednostka: %d", (int)unit);
 }
 
 void attachInterrupts(void *param){

@@ -159,7 +159,6 @@ void wifiServiceTask(void *pvParameters){
     }
 }
 
-
 // task for handling UDP server
 void udp_server_task(void *pvParameters) {
     char rx_buffer[128];

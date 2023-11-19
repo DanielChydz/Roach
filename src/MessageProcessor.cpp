@@ -4,78 +4,101 @@
 #include <string.h> // strcmp
 #include <vector>
 
-vector<char> getValue(char* msg);
+int getValue(char* msg);
 int getKey(char* msg);
 
 void processMessage(char* msg){
     char* newMsg = msg;
-    int key = getKey(msg);
-    if(key) return;
+    bool key = getKey(msg);
+    int temp = 0;
+    if(!key) return;
     for(int i = 0; i < 17; i++) newMsg++; // 17 should be calculated on the go instead of hard coded
 
     while (*newMsg != 'E')
     {
         switch(*newMsg){
-            // IP
-            case 'I':
-                newMsg++;
-                ConnectivityData.udpSendAddress = reinterpret_cast<char*>(getValue(newMsg).data());;
-                printf(ConnectivityData.udpSendAddress);
-                break;
             // both wheels
-            case 'B' || 'B':
+            case 'B':
                 newMsg++;
-                //speed = getValue(newMsg);
-                break;
+                temp = getValue(newMsg);
+                if(temp > 0){
+                    bothWheelsValue = temp;
+                    leftMotorDir = 0;
+                    rightMotorDir = 1;
+                } else if(temp < 0){
+                    bothWheelsValue = temp * (-1);
+                    leftMotorDir = 1;
+                    rightMotorDir = 0;
+                }
+                continue;
             // left wheel
             case 'L':
                 newMsg++;
-                // = getValue(newMsg);
-                break;
+                temp = getValue(newMsg);
+                if(temp > 0){
+                    leftWheelValue = temp;
+                    leftMotorDir = 0;
+                } else if(temp < 0){
+                    leftWheelValue = temp * (-1);
+                    leftMotorDir = 1;
+                }
+                continue;
             // right wheel
             case 'R':
                 newMsg++;
-                // = getValue(newMsg);
-                break;
+                temp = getValue(newMsg);
+                if(temp > 0){
+                    rightWheelValue = temp;
+                    rightMotorDir = 0;
+                } else if(temp < 0){
+                    rightWheelValue = temp * (-1);
+                    rightMotorDir = 1;
+                }
+                continue;
             // speed
             case 'S':
                 newMsg++;
-                // = getValue(newMsg);
-                break;
+                temp = getValue(newMsg);
+                speedSetPoint = temp * 255 / 100;
+                continue;
             // unit
             case 'U':
                 newMsg++;
-                // = getValue(newMsg);
+                unit = getValue(newMsg);
+                continue;
             default:
-                break;
+                newMsg++;
         }
-        newMsg++;
     }
 
-    // driveVehicle();
+    driveVehicle();
 }
 
 // extract values from data
-vector<char> getValue(char* msg){
-    vector<char> val_test;
+int getValue(char* msg){
     int val=0;
-    while (isdigit(*msg) || *msg == '.'){
-        //val=(val*10)+(*msg-'0');
-        val_test.push_back(*msg);
+    bool negative = false;
+    while (isdigit(*msg) || *msg == '-'){
+        if(*msg != '-'){
+            val=(val*10)+(*msg-'0');
+        } else {
+            negative = true;
+        }
         msg++;
     }
-    return val_test;
+    if(negative) val *= -1;
+    return val;
 }
 
 // check if data contains key word
 int getKey(char* msg){
-    int keyVal = 1;
+    bool keyVal = false;
     char keyWordLocal[18];
     for(int i = 0; i < 17; i++){
         keyWordLocal[i] = *msg;
         msg++;
     }
     keyWordLocal[17] = '\0';
-    if(!strcmp(keyWordLocal, keyWord)) keyVal = 0;
+    if(strcmp(keyWordLocal, keyWord) == 0) keyVal = true;
     return keyVal;
 }
