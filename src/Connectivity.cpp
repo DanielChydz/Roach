@@ -32,8 +32,8 @@ TaskHandle_t xUDPServerHandle;
 TaskHandle_t xUDPClientHandle;
 TaskHandle_t xWifiServiceHandle;
 
-void udp_server_task(void *pvParameters);
-void udp_client_task(void *pvParameters);
+void udpServerTask(void *pvParameters);
+void udpClientTask(void *pvParameters);
 void wifiServiceTask(void *pvParameters);
 
 // task printing dots to the console when waiting for the wifi to connect
@@ -101,7 +101,7 @@ void startWifiService(){
     );
     while(!connected) vTaskDelay(10);
     xTaskCreatePinnedToCore(
-        udp_server_task,      // Function that should be called
+        udpServerTask,      // Function that should be called
         "UDPServer",    // Name of the task (for debugging)
         10000,               // Stack size (bytes)
         NULL,               // Parameter to pass
@@ -110,7 +110,7 @@ void startWifiService(){
         udpServerCore          // Core you want to run the task on (0 or 1)
     );
     xTaskCreatePinnedToCore(
-        udp_client_task,      // Function that should be called
+        udpClientTask,      // Function that should be called
         "UDPClient",    // Name of the task (for debugging)
         10000,               // Stack size (bytes)
         NULL,               // Parameter to pass
@@ -160,7 +160,7 @@ void wifiServiceTask(void *pvParameters){
 }
 
 // task for handling UDP server
-void udp_server_task(void *pvParameters) {
+void udpServerTask(void *pvParameters) {
     char rx_buffer[128];
     struct sockaddr_in server_addr;
     struct sockaddr_in client_addr;
@@ -207,7 +207,7 @@ void udp_server_task(void *pvParameters) {
 }
 
 // task for handling UDP client
-void udp_client_task(void *pvParameters) {
+void udpClientTask(void *pvParameters) {
     struct sockaddr_in dest_addr;
     dest_addr.sin_addr.s_addr = inet_addr(ConnectivityData.udpSendAddress);
     dest_addr.sin_family = AF_INET;

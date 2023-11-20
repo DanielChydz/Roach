@@ -4,7 +4,7 @@ extern uint8_t speedSetPoint, leftMotorSpeed, rightMotorSpeed;
 extern int32_t bothWheelsValue, leftWheelValue, rightWheelValue;
 extern bool leftMotorDir, rightMotorDir, unit;
 
-void setupMotors();
+void startMotorService();
 
 void setMotorRotationDir(gpio_num_t firstPin, gpio_num_t secondPin, bool dir);
 void setMotorSpeed(gpio_num_t motor, int speed);

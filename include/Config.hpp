@@ -5,7 +5,7 @@ using namespace std;
 
 const char keyWord[18] = "DC_Remote_Car_Key";
 
-//Tasks config.
+// tasks' config
 // printing dots while waiting for wifi connection task
 const uint16_t printDotsWhileConnectingToWifiDelay = 1000; // delay, ms
 const uint8_t printDotsWhileConnectingToWifiPriority = 5; // priority
@@ -23,11 +23,22 @@ const uint16_t wifiServiceCheckConnectionDelay = 100; // delay, ms
 const uint16_t wifiServiceWaitForConnectionDelay = 250; // delay, ms
 const uint8_t wifiServicePriority = 3; // priority
 const bool wifiServiceCore = 1; // core, 0-1
-// attaching interrupts task, no delay due to the task not having a loop
-const uint8_t attachInterruptsPriority = 1; // priority
-const bool attachInterruptsCore = 0; // core, 0-1
+// motor service task
+const uint16_t motorServiceTaskDelay = 200; // delay, ms
+const uint8_t motorServiceTaskPriority = 2; // priority
+const bool motorServiceTaskCore = 0; // core, 0-1
 
+// encoder config
 const uint16_t pulsesPerRotation = 1400;
+const uint16_t pcntHighLimit = 1400;
+const uint16_t pcntLowLimit = -1400;
+
+// pid config
+const uint16_t pidLoopPeriod = 10; // how often motor speed is supposed to be calculated, ms
+const uint16_t pidSetPoint = 10;
+const float pidKp = 10;
+const float pidKi = 10;
+const float pidKd = 10;
 
 struct{ // left motor
     const gpio_num_t pin = GPIO_NUM_25; // PWM
