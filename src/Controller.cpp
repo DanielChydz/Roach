@@ -4,10 +4,9 @@
 #include <driver/pulse_cnt.h>
 #include <driver/gpio.h>
 #include <esp_log.h>
-#include <driver/mcpwm_timer.h>
+#include <driver/mcpwm.h>
 #include <../bdc_motor/include/bdc_motor.h>
 #include <../pid_ctrl/include/pid_ctrl.h>
-
 #include <stdio.h>
 #include "sdkconfig.h"
 #include "freertos/queue.h"
@@ -57,6 +56,7 @@ typedef struct {
 void encLeft_leftPin();
 void encLeft_rightPin();
 void motorServiceTask(void *pvParameters);
+void setMotorRotationDir(gpio_num_t firstPin, gpio_num_t secondPin, bool dir);
 
 void setStandby(gpio_num_t pin, bool mode){
   gpio_set_level(pin, mode);
@@ -84,6 +84,8 @@ static void pid_loop_cb(void *args)
     // set the new speed
     pid_compute(pid_ctrl, error, &new_speed);
     bdc_motor_set_speed(motor, (uint32_t)new_speed);
+    ESP_LOGI("Controller", "Predkosc: %f", new_speed);
+    ESP_LOGI("Controller", "Pulsy: %d", real_pulses);
 }
 
 void startMotorService() {
@@ -98,48 +100,76 @@ void startMotorService() {
     );
 }
 
+/*
+There's an entire ready-to-go example of PWM PID BDC motor control on Espressif GitHub.
+However, it doesn't properly support motor driver used in this project (TB6612FNG).
+A new version of standalone MCPWM could be used, but it'd be time consuming.
+Since time is of the essence, I've decided to stick with deprecated version.
+*/
 void motorServiceTask(void *pvParameters){
   ESP_LOGI("Controller", "Konfiguracja silnikow.");
 
-  gpio_set_direction(leftMotor.pin, GPIO_MODE_OUTPUT);
-  gpio_set_direction(leftMotor.standby, GPIO_MODE_OUTPUT);
+  gpio_set_direction(standbyPin, GPIO_MODE_OUTPUT);
+  gpio_set_direction(leftMotor.pwmPin, GPIO_MODE_OUTPUT);
   gpio_set_direction(leftMotor.motorPolarization_IN1, GPIO_MODE_OUTPUT);
   gpio_set_direction(leftMotor.motorPolarization_IN2, GPIO_MODE_OUTPUT);
 
-  gpio_set_direction(rightMotor.pin, GPIO_MODE_OUTPUT);
+  gpio_set_direction(rightMotor.pwmPin, GPIO_MODE_OUTPUT);
   gpio_set_direction(rightMotor.motorPolarization_IN1, GPIO_MODE_OUTPUT);
   gpio_set_direction(rightMotor.motorPolarization_IN2, GPIO_MODE_OUTPUT);
 
-  setStandby(leftMotor.standby, true);
+  gpio_config_t standbyConfig = {
+    .pin_bit_mask = 0x1<<standbyPin,
+    .mode = GPIO_MODE_OUTPUT,
+    .pull_up_en = GPIO_PULLUP_ENABLE,
+    .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    .intr_type = GPIO_INTR_DISABLE,
+  };
+	ESP_ERROR_CHECK(gpio_config(&standbyConfig));
+  setStandby(standbyPin, true);
 
   gpio_set_direction(leftMotor.encoderLeftPin, GPIO_MODE_INPUT);
   gpio_set_direction(leftMotor.encoderRightPin, GPIO_MODE_INPUT);
 
   // test
-  static motor_control_context_t motor_ctrl_ctx = {
-        .pcnt_encoder = NULL,
-  };
+  // static motor_control_context_t motor_ctrl_ctx = {
+  //       .motor = NULL,
+  //       .pcnt_encoder = NULL,
+  //       .pid_ctrl = NULL,
+  //       .report_pulses = 0,
+  // };
 
   ESP_LOGI("MOTORTEST", "Create DC motor");
-  bdc_motor_config_t motor_config = {
-      .pwma_gpio_num = leftMotor.motorPolarization_IN1,
-      .pwmb_gpio_num = leftMotor.motorPolarization_IN2,
-      .pwm_freq_hz = BDC_MCPWM_FREQ_HZ,
+  mcpwm_config_t pwmConfig = {
+    pwmConfig.frequency = 1000,
+    pwmConfig.cmpr_a = 0,
+    pwmConfig.cmpr_b = 0,
+    pwmConfig.duty_mode = MCPWM_DUTY_MODE_0,
+    pwmConfig.counter_mode = MCPWM_UP_COUNTER,
   };
-  bdc_motor_mcpwm_config_t mcpwm_config = {
-      .group_id = 0,
-      .resolution_hz = BDC_MCPWM_TIMER_RESOLUTION_HZ,
-  };
-  bdc_motor_handle_t motor = NULL;
-  ESP_ERROR_CHECK(bdc_motor_new_mcpwm_device(&motor_config, &mcpwm_config, &motor));
-  motor_ctrl_ctx.motor = motor;
+	ESP_ERROR_CHECK(mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwmConfig));
+
+
+  gpio_config_t gpio_conf;
+  gpio_conf.intr_type = GPIO_INTR_DISABLE;
+  gpio_conf.mode = GPIO_MODE_OUTPUT;
+  gpio_conf.pin_bit_mask = 0x1<<leftMotor.motorPolarization_IN1 | 0x1<<leftMotor.motorPolarization_IN2;
+  gpio_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  gpio_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+  ESP_ERROR_CHECK(gpio_config(&gpio_conf));
+  ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, leftMotor.pwmPin));
+  ESP_ERROR_CHECK(mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, 20));
+  setMotorRotationDir(leftMotor.motorPolarization_IN1, leftMotor.motorPolarization_IN2, 0);
+
+  
+  //motor_ctrl_ctx.motor = motor;
 
   ESP_LOGI("MOTORTEST", "Init pcnt driver to decode rotary signal");
   pcnt_unit_config_t unit_config = {
       .low_limit = pcntLowLimit,
       .high_limit = pcntHighLimit,
       .flags = {
-          .accum_count = true // enable counter accumulation
+          .accum_count = true
       }
   };
   pcnt_unit_handle_t pcnt_unit = NULL;
@@ -155,8 +185,8 @@ void motorServiceTask(void *pvParameters){
   pcnt_channel_handle_t pcnt_chan_a = NULL;
   ESP_ERROR_CHECK(pcnt_new_channel(pcnt_unit, &chan_a_config, &pcnt_chan_a));
   pcnt_chan_config_t chan_b_config = {
-      .edge_gpio_num = leftMotor.encoderLeftPin,
-      .level_gpio_num = leftMotor.encoderRightPin,
+      .edge_gpio_num = leftMotor.encoderRightPin,
+      .level_gpio_num = leftMotor.encoderLeftPin,
   };
   pcnt_channel_handle_t pcnt_chan_b = NULL;
   ESP_ERROR_CHECK(pcnt_new_channel(pcnt_unit, &chan_b_config, &pcnt_chan_b));
@@ -164,55 +194,51 @@ void motorServiceTask(void *pvParameters){
   ESP_ERROR_CHECK(pcnt_channel_set_level_action(pcnt_chan_a, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE));
   ESP_ERROR_CHECK(pcnt_channel_set_edge_action(pcnt_chan_b, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE));
   ESP_ERROR_CHECK(pcnt_channel_set_level_action(pcnt_chan_b, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE));
-  ESP_ERROR_CHECK(pcnt_unit_add_watch_point(pcnt_unit, BDC_ENCODER_PCNT_HIGH_LIMIT));
-  ESP_ERROR_CHECK(pcnt_unit_add_watch_point(pcnt_unit, BDC_ENCODER_PCNT_LOW_LIMIT));
+  ESP_ERROR_CHECK(pcnt_unit_add_watch_point(pcnt_unit, pcntHighLimit));
+  ESP_ERROR_CHECK(pcnt_unit_add_watch_point(pcnt_unit, pcntLowLimit));
   ESP_ERROR_CHECK(pcnt_unit_enable(pcnt_unit));
   ESP_ERROR_CHECK(pcnt_unit_clear_count(pcnt_unit));
   ESP_ERROR_CHECK(pcnt_unit_start(pcnt_unit));
-  motor_ctrl_ctx.pcnt_encoder = pcnt_unit;
+  //motor_ctrl_ctx.pcnt_encoder = pcnt_unit;
 
-  ESP_LOGI("MOTORTEST", "Create PID control block");
-  pid_ctrl_parameter_t pid_runtime_param = {
-      .kp = 0.6,
-      .ki = 0.4,
-      .kd = 0.2,
-      .max_output   = BDC_MCPWM_DUTY_TICK_MAX - 1,
-      .min_output   = 0,
-      .max_integral = 1000,
-      .min_integral = -1000,
-      .cal_type = PID_CAL_TYPE_INCREMENTAL,
-  };
-  pid_ctrl_block_handle_t pid_ctrl = NULL;
-  pid_ctrl_config_t pid_config = {
-      .init_param = pid_runtime_param,
-  };
-  ESP_ERROR_CHECK(pid_new_control_block(&pid_config, &pid_ctrl));
-  motor_ctrl_ctx.pid_ctrl = pid_ctrl;
+  // ESP_LOGI("MOTORTEST", "Create PID control block");
+  // pid_ctrl_parameter_t pid_runtime_param = {
+  //     .kp = pidKp,
+  //     .ki = pidKi,
+  //     .kd = pidKd,
+  //     .max_output   = BDC_MCPWM_DUTY_TICK_MAX - 1,
+  //     .min_output   = 0,
+  //     .max_integral = 1000,
+  //     .min_integral = -1000,
+  //     .cal_type = PID_CAL_TYPE_POSITIONAL,
+  // };
+  // pid_ctrl_block_handle_t pid_ctrl = NULL;
+  // pid_ctrl_config_t pid_config = {
+  //     .init_param = pid_runtime_param,
+  // };
+  // ESP_ERROR_CHECK(pid_new_control_block(&pid_config, &pid_ctrl));
+  // motor_ctrl_ctx.pid_ctrl = pid_ctrl;
 
-  ESP_LOGI("MOTORTEST", "Create a timer to do PID calculation periodically");
-  const esp_timer_create_args_t periodic_timer_args = {
-      .callback = pid_loop_cb,
-      .arg = &motor_ctrl_ctx,
-      .name = "pid_loop"
-  };
-  esp_timer_handle_t pid_loop_timer = NULL;
-  ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &pid_loop_timer));
+  // ESP_LOGI("MOTORTEST", "Create a timer to do PID calculation periodically");
+  // const esp_timer_create_args_t periodic_timer_args = {
+  //     .callback = pid_loop_cb,
+  //     .arg = &motor_ctrl_ctx,
+  //     .name = "pid_loop"
+  // };
+  // esp_timer_handle_t pid_loop_timer = NULL;
+  // ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &pid_loop_timer));
 
-  ESP_LOGI("MOTORTEST", "Enable motor");
-  ESP_ERROR_CHECK(bdc_motor_enable(motor));
-  ESP_LOGI("MOTORTEST", "Forward motor");
-  ESP_ERROR_CHECK(bdc_motor_forward(motor));
+  // ESP_LOGI("MOTORTEST", "Start motor speed loop");
+  // ESP_ERROR_CHECK(esp_timer_start_periodic(pid_loop_timer, pidLoopPeriod * 1000));
 
-  ESP_LOGI("MOTORTEST", "Start motor speed loop");
-  ESP_ERROR_CHECK(esp_timer_start_periodic(pid_loop_timer, pidLoopPeriod * 1000));
-
+  int cur_pulse_count = 0;
+  
   while(true) {
-      vTaskDelay(pdMS_TO_TICKS(100));
+      vTaskDelay(pdMS_TO_TICKS(500));
       // the following logging format is according to the requirement of serial-studio frame format
       // also see the dashboard config file `serial-studio-dashboard.json` for more information
-      #if SERIAL_STUDIO_DEBUG
-        printf("/*%d*/\r\n", motor_ctrl_ctx.report_pulses);
-      #endif
+      pcnt_unit_get_count(pcnt_unit, &cur_pulse_count);
+      printf("Pulsy: %d\r\n", cur_pulse_count);
   }
 }
 
@@ -229,8 +255,8 @@ void setMotorSpeed(gpio_num_t motor, int speed) {
 
 // First motor speed, second motor speed, values 0-255.
 void setMotorsSpeed(int first, int second){
-  gpio_set_level(leftMotor.pin, first); // CHANGE ASAP
-  gpio_set_level(rightMotor.pin, second); // CHANGE ASAP
+  gpio_set_level(leftMotor.pwmPin, first); // CHANGE ASAP
+  gpio_set_level(rightMotor.pwmPin, second); // CHANGE ASAP
 }
 
 // First motor rotation direction, second motor rotation direction, values 0/1.
@@ -248,15 +274,7 @@ void brake(){
 }
 
 void driveVehicle(){
-  ESP_LOGI("Controller", "Oba kola: %d", (int)bothWheelsValue);
-  ESP_LOGI("Controller", "Lewe kolo: %d", (int)leftWheelValue);
-  ESP_LOGI("Controller", "Prawe kolo: %d", (int)rightWheelValue);
-  ESP_LOGI("Controller", "Predkosc: %d", (int)speedSetPoint);
-  ESP_LOGI("Controller", "Predkosc lewego kola: %d", (int)leftMotorSpeed);
-  ESP_LOGI("Controller", "Predkosc prawego kola: %d", (int)rightMotorSpeed);
-  ESP_LOGI("Controller", "Kierunek lewego kola: %d", (int)leftMotorDir);
-  ESP_LOGI("Controller", "Kierunek prawego kola: %d", (int)rightMotorDir);
-  ESP_LOGI("Controller", "Jednostka: %d", (int)unit);
+  ESP_ERROR_CHECK(mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, speedSetPoint));
 }
 
 /*
@@ -290,12 +308,12 @@ void rotateWheels(int wheel, float times, int speed, int direction){
       break;
     case 1:
       setMotorRotationDir(leftMotor.motorPolarization_IN1, leftMotor.motorPolarization_IN2, direction);
-      setMotorSpeed(leftMotor.pin, speed);
+      setMotorSpeed(leftMotor.pwmPin, speed);
       requiredPulses = pulsesPerRotation * times;
       break;
     case 2:
       setMotorRotationDir(rightMotor.motorPolarization_IN1, rightMotor.motorPolarization_IN2, direction);
-      setMotorSpeed(rightMotor.pin, speed);
+      setMotorSpeed(rightMotor.pwmPin, speed);
       requiredPulses = pulsesPerRotation * times;
       break;
   }

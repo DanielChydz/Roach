@@ -58,8 +58,7 @@ void processMessage(char* msg){
             // speed
             case 'S':
                 newMsg++;
-                temp = getValue(newMsg);
-                speedSetPoint = temp * 255 / 100;
+                speedSetPoint = getValue(newMsg);
                 continue;
             // unit
             case 'U':
