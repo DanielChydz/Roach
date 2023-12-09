@@ -1,10 +1,4 @@
-#include <Controller.hpp>
-#include <Config.hpp>
-#include <Connectivity.hpp>
-#include <MessageProcessor.hpp>
-#include <esp_log.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+#include "Main.hpp"
 
 extern "C" void app_main(void){
   ESP_LOGI("Setup", "Rozpoczynanie konfiguracji.");
@@ -14,10 +8,10 @@ extern "C" void app_main(void){
   setvbuf(stdout, NULL, _IONBF, 0);
 
   // setup motors and interrupts
-  startMotorService();
+  //startMotorService();
   
   // setup wifi
-  //startWifiService();
+  startWifiService();
 
   while(!connected) xTaskDelayUntil(&xLastWakeTime, 20);
   ESP_LOGI("Setup","Konfiguracja zakonczona. Rozpoczynanie dzialania programu.");

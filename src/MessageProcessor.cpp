@@ -1,8 +1,4 @@
-#include <ctype.h> // isdigit
-#include <Config.hpp>
-#include <Controller.hpp>
-#include <string.h> // strcmp
-#include <vector>
+#include "MessageProcessor.hpp"
 
 int getValue(char* msg);
 int getKey(char* msg);
@@ -22,13 +18,13 @@ void processMessage(char* msg){
                 newMsg++;
                 temp = getValue(newMsg);
                 if(temp > 0){
-                    bothWheelsValue = temp;
-                    leftMotorDir = 0;
-                    rightMotorDir = 1;
+                    pidSetPoint = temp;
+                    leftMotorProperties.motorDir = 0;
+                    rightMotorProperties.motorDir = 1;
                 } else if(temp < 0){
-                    bothWheelsValue = temp * (-1);
-                    leftMotorDir = 1;
-                    rightMotorDir = 0;
+                    pidSetPoint = temp * (-1);
+                    leftMotorProperties.motorDir = 1;
+                    leftMotorProperties.motorDir = 0;
                 }
                 continue;
             // left wheel
@@ -36,11 +32,11 @@ void processMessage(char* msg){
                 newMsg++;
                 temp = getValue(newMsg);
                 if(temp > 0){
-                    leftWheelValue = temp;
-                    leftMotorDir = 0;
+                    pidSetPoint = temp;
+                    leftMotorProperties.motorDir = 0;
                 } else if(temp < 0){
-                    leftWheelValue = temp * (-1);
-                    leftMotorDir = 1;
+                    pidSetPoint = temp * (-1);
+                    leftMotorProperties.motorDir = 1;
                 }
                 continue;
             // right wheel
@@ -48,17 +44,17 @@ void processMessage(char* msg){
                 newMsg++;
                 temp = getValue(newMsg);
                 if(temp > 0){
-                    rightWheelValue = temp;
-                    rightMotorDir = 0;
+                    pidSetPoint = temp;
+                    rightMotorProperties.motorDir = 0;
                 } else if(temp < 0){
-                    rightWheelValue = temp * (-1);
-                    rightMotorDir = 1;
+                    pidSetPoint = temp * (-1);
+                    rightMotorProperties.motorDir = 1;
                 }
                 continue;
             // speed
             case 'S':
                 newMsg++;
-                speedSetPoint = getValue(newMsg);
+                pidSetPoint = getValue(newMsg);
                 continue;
             // unit
             case 'U':
@@ -69,8 +65,6 @@ void processMessage(char* msg){
                 newMsg++;
         }
     }
-
-    driveVehicle();
 }
 
 // extract values from data

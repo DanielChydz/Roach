@@ -1,66 +1,50 @@
+#ifndef ROACH_CONFIG_H
+#define ROACH_CONFIG_H
+#include "Controller.hpp"
 #include <string>
 #include <driver/gpio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 using namespace std;
 
-const char keyWord[18] = "DC_Remote_Car_Key";
+struct taskConfig{
+  const uint16_t taskLoopDelay;
+  const uint16_t taskSecondLoopDelay;
+  const uint8_t taskPriority;
+  const bool taskCore;
+  TaskHandle_t taskHandle;
+};
 
-// tasks' config
-// printing dots while waiting for wifi connection task
-const uint16_t printDotsWhileConnectingToWifiDelay = 1000; // delay, ms
-const uint8_t printDotsWhileConnectingToWifiPriority = 5; // priority
-const bool printDotsWhileConnectingToWifiCore = 1; // core, 0-1
-// UDP client task
-const uint16_t udpClientDelay = 2000; // delay, ms
-const uint8_t udpClientPriority = 2; // priority
-const bool udpClientCore = 1; // core, 0-1
-// UDP server task
-const uint16_t udpServerDelay = 200; // delay, ms
-const uint8_t udpServerPriority = 2; // priority
-const bool udpServerCore = 1; // core, 0-1
-// wifi service task
-const uint16_t wifiServiceCheckConnectionDelay = 100; // delay, ms
-const uint16_t wifiServiceWaitForConnectionDelay = 250; // delay, ms
-const uint8_t wifiServicePriority = 3; // priority
-const bool wifiServiceCore = 1; // core, 0-1
-// motor service task
-const uint16_t motorServiceTaskDelay = 200; // delay, ms
-const uint8_t motorServiceTaskPriority = 2; // priority
-const bool motorServiceTaskCore = 0; // core, 0-1
+struct connectivityData{
+  const char* udpSendAddress;
+  const uint16_t udpSendPort;
+  const uint16_t udpReceivePort;
+};
+
+extern connectivityData connData;
+
+extern taskConfig printDotsWhileConnectingToWifiConfig;
+extern taskConfig udpClientConfig;
+extern taskConfig udpServerConfig;
+extern taskConfig wifiServiceCheckConnectionConfig;
+extern taskConfig motorServiceConfig;
+
+extern const char keyWord[18];
 
 // encoder config
-const uint16_t pulsesPerRotation = 1400;
+const uint16_t pulsesPerRevolution = 1400;
+const uint8_t pulsesPerCm = pulsesPerRevolution / (2 * 3.141 * 1.5); // pulsesPerRevolution / (2 * pi * r), where r is wheel radius
 const uint16_t pcntHighLimit = 1400;
 const int16_t pcntLowLimit = -1400;
 
 // pid config
-const uint16_t pidLoopPeriod = 500; // how often motor speed is supposed to be calculated, ms
-const uint16_t pidSetPoint = 100;
+const uint16_t loopPeriod = 20; // how often motor speed is supposed to be calculated, ms
 const float pidKp = 100;
-const float pidKi = 10;
-const float pidKd = 10;
+const float pidKi = 50;
+const float pidKd = 20;
 
 // motor driver standby pin
 const gpio_num_t standbyPin = GPIO_NUM_14;
 
-struct{ // left motor
-    const gpio_num_t pwmPin = GPIO_NUM_25; // PWM
-    const gpio_num_t motorPolarization_IN1 = GPIO_NUM_26; // polarization 1
-    const gpio_num_t motorPolarization_IN2 = GPIO_NUM_27; // polarization 2
-    const gpio_num_t encoderLeftPin = GPIO_NUM_32;
-    const gpio_num_t encoderRightPin = GPIO_NUM_33;
-} leftMotor;
-
-struct{ // right motor
-    const gpio_num_t pwmPin = GPIO_NUM_0; // PWM
-    const gpio_num_t motorPolarization_IN1 = GPIO_NUM_4; // polarization 1
-    const gpio_num_t motorPolarization_IN2 = GPIO_NUM_16; // polarization 2
-    const gpio_num_t encoderLeftPin = GPIO_NUM_16; // TEMP - CHANGE IN FINAL VERSION
-    const gpio_num_t encoderRightPin = GPIO_NUM_16; // TEMP - CHANGE IN FINAL VERSION
-} rightMotor;
-
-struct{
-    const char* udpSendAddress = "192.168.220.201";
-    const uint16_t udpSendPort = 4322;
-    const uint16_t udpReceivePort = 4321;
-} ConnectivityData;
+#endif
