@@ -7,7 +7,7 @@ void processMessage(char* msg){
     char* newMsg = msg;
     bool key = getKey(msg);
     int temp = 0;
-    if(!key) return;
+    if(!key || executingTask) return;
     for(int i = 0; i < 17; i++) newMsg++; // 17 should be calculated on the go instead of hard coded
 
     while (*newMsg != 'E')
@@ -18,13 +18,15 @@ void processMessage(char* msg){
                 newMsg++;
                 temp = getValue(newMsg);
                 if(temp > 0){
-                    pidSetPoint = temp;
+                    leftMotorProperties.distance = temp;
+                    rightMotorProperties.distance = temp;
                     leftMotorProperties.motorDir = 0;
                     rightMotorProperties.motorDir = 1;
                 } else if(temp < 0){
-                    pidSetPoint = temp * (-1);
+                    leftMotorProperties.distance = temp * (-1);
+                    rightMotorProperties.distance = temp * (-1);
                     leftMotorProperties.motorDir = 1;
-                    leftMotorProperties.motorDir = 0;
+                    rightMotorProperties.motorDir = 0;
                 }
                 continue;
             // left wheel
@@ -32,10 +34,10 @@ void processMessage(char* msg){
                 newMsg++;
                 temp = getValue(newMsg);
                 if(temp > 0){
-                    pidSetPoint = temp;
+                    leftMotorProperties.distance = temp;
                     leftMotorProperties.motorDir = 0;
                 } else if(temp < 0){
-                    pidSetPoint = temp * (-1);
+                    rightMotorProperties.distance = temp * (-1);
                     leftMotorProperties.motorDir = 1;
                 }
                 continue;
@@ -44,27 +46,35 @@ void processMessage(char* msg){
                 newMsg++;
                 temp = getValue(newMsg);
                 if(temp > 0){
-                    pidSetPoint = temp;
-                    rightMotorProperties.motorDir = 0;
-                } else if(temp < 0){
-                    pidSetPoint = temp * (-1);
+                    rightMotorProperties.distance = temp;
                     rightMotorProperties.motorDir = 1;
+                } else if(temp < 0){
+                    rightMotorProperties.distance = temp * (-1);
+                    rightMotorProperties.motorDir = 0;
                 }
                 continue;
             // speed
             case 'S':
                 newMsg++;
-                pidSetPoint = getValue(newMsg);
+                maxMotorSpeed = getValue(newMsg);
                 continue;
-            // unit
+            // distanceUnit
             case 'U':
                 newMsg++;
-                unit = getValue(newMsg);
+                temp = getValue(newMsg);
+                if(temp==0){
+                    leftMotorProperties.distance *= pulsesPerCm;
+                    rightMotorProperties.distance *= pulsesPerCm;
+                } else if(temp==1){
+                    leftMotorProperties.distance *= pulsesPerRevolution;
+                    rightMotorProperties.distance *= pulsesPerRevolution;
+                }
                 continue;
             default:
                 newMsg++;
         }
     }
+    executingTask = true;
 }
 
 // extract values from data
@@ -92,6 +102,6 @@ int getKey(char* msg){
         msg++;
     }
     keyWordLocal[17] = '\0';
-    if(strcmp(keyWordLocal, keyWord) == 0) keyVal = true;
+    if(strcmp(keyWordLocal, connData.keyWord) == 0) keyVal = true;
     return keyVal;
 }

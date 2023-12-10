@@ -1,8 +1,6 @@
 #ifndef ROACH_CONFIG_H
 #define ROACH_CONFIG_H
 #include "Controller.hpp"
-#include <string>
-#include <driver/gpio.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -16,13 +14,30 @@ struct taskConfig{
   TaskHandle_t taskHandle;
 };
 
-struct connectivityData{
+struct connectivityConfig{
   const char* udpSendAddress;
   const uint16_t udpSendPort;
   const uint16_t udpReceivePort;
+  const char keyWord[18];
 };
 
-extern connectivityData connData;
+struct pidConfig{
+  uint16_t setPoint;
+  const uint16_t loopPeriod;
+  const float pidKp;
+  const float pidKi;
+  const float pidKd;
+  const float maxOutput;
+  const float minOutput;
+  const float maxIntegral;
+  const float minIntegral;
+};
+
+extern pidConfig distancePidConf;
+extern pidConfig leftMotorPid;
+extern pidConfig rightMotorPid;
+
+extern connectivityConfig connData;
 
 extern taskConfig printDotsWhileConnectingToWifiConfig;
 extern taskConfig udpClientConfig;
@@ -30,21 +45,12 @@ extern taskConfig udpServerConfig;
 extern taskConfig wifiServiceCheckConnectionConfig;
 extern taskConfig motorServiceConfig;
 
-extern const char keyWord[18];
-
 // encoder config
-const uint16_t pulsesPerRevolution = 1400;
-const uint8_t pulsesPerCm = pulsesPerRevolution / (2 * 3.141 * 1.5); // pulsesPerRevolution / (2 * pi * r), where r is wheel radius
-const uint16_t pcntHighLimit = 1400;
-const int16_t pcntLowLimit = -1400;
-
-// pid config
-const uint16_t loopPeriod = 20; // how often motor speed is supposed to be calculated, ms
-const float pidKp = 100;
-const float pidKi = 50;
-const float pidKd = 20;
-
-// motor driver standby pin
-const gpio_num_t standbyPin = GPIO_NUM_14;
+extern const uint16_t pulsesPerRevolution;
+extern const float pulsesPerCm;
+extern const uint16_t pcntHighLimit;
+extern const int16_t pcntLowLimit;
+extern const gpio_num_t standbyPin;
+extern int maxMotorSpeed;
 
 #endif
