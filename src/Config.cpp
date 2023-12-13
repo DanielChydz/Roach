@@ -56,16 +56,16 @@ pidConfig distancePidConf = {
   .pidKp = 0.8,
   .pidKi = 0.2,
   .pidKd = 0.5,
-  .maxOutput = 1400,
-  .minOutput = 1400,
-  .maxIntegral = 1400,
-  .minIntegral = 1400,
+  .maxOutput = 10000,
+  .minOutput = 10000,
+  .maxIntegral = 10000,
+  .minIntegral = 10000,
 };
 
 pidConfig leftMotorPid = {
   .loopPeriod = 500,
   .pidKp = 0.8,
-  .pidKi = 0.2,
+  .pidKi = 0.6,
   .pidKd = 0.5,
   .maxOutput = 10000,
   .minOutput = 0,

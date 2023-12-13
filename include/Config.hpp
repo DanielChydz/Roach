@@ -22,7 +22,7 @@ struct connectivityConfig{
 };
 
 struct pidConfig{
-  uint16_t setPoint;
+  int setPoint;
   const uint16_t loopPeriod;
   const float pidKp;
   const float pidKi;
@@ -51,6 +51,7 @@ extern const float pulsesPerCm;
 extern const uint16_t pcntHighLimit;
 extern const int16_t pcntLowLimit;
 extern const gpio_num_t standbyPin;
+extern const uint16_t pulsesPerPowerPercent;
 extern int maxMotorSpeed;
 
 #endif

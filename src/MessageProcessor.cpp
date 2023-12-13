@@ -16,18 +16,7 @@ void processMessage(char* msg){
             // both wheels
             case 'B':
                 newMsg++;
-                temp = getValue(newMsg);
-                if(temp > 0){
-                    leftMotorProperties.distance = temp;
-                    rightMotorProperties.distance = temp;
-                    leftMotorProperties.motorDir = 0;
-                    rightMotorProperties.motorDir = 1;
-                } else if(temp < 0){
-                    leftMotorProperties.distance = temp * (-1);
-                    rightMotorProperties.distance = temp * (-1);
-                    leftMotorProperties.motorDir = 1;
-                    rightMotorProperties.motorDir = 0;
-                }
+                distancePidConf.setPoint = getValue(newMsg);
                 continue;
             // left wheel
             case 'L':
@@ -63,18 +52,16 @@ void processMessage(char* msg){
                 newMsg++;
                 temp = getValue(newMsg);
                 if(temp==0){
-                    leftMotorProperties.distance *= pulsesPerCm;
-                    rightMotorProperties.distance *= pulsesPerCm;
+                    distancePidConf.setPoint *= pulsesPerCm;
                 } else if(temp==1){
-                    leftMotorProperties.distance *= pulsesPerRevolution;
-                    rightMotorProperties.distance *= pulsesPerRevolution;
+                    distancePidConf.setPoint *= pulsesPerRevolution;
                 }
                 continue;
             default:
                 newMsg++;
         }
     }
-    executingTask = true;
+    if(!executingTask) startLoop();
 }
 
 // extract values from data

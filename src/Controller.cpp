@@ -3,33 +3,73 @@
 #include <esp_timer.h>
 
 bool executingTask = false;
+int lastPulseCountLeftMotor = 0;
+int lastPulseCountRightMotor = 0;
+esp_timer_handle_t loopTimer = NULL;
 
 void motorServiceTask(void *args);
 void driveMotor(motorProperties *args);
 void configureMotor(motorProperties *args);
 
-static void motorLoop(void *args)
-{
-    static int lastPulseCountLeftMotor = 0;
-    static int lastPulseCountRightMotor = 0;
-    static int drivenWheelRevolutions = 0;
-    static int drivenWheelDistance = 0;
-    pcnt_unit_get_count(leftMotorProperties.pcntUnit, &leftMotorProperties.pulses);
-    pcnt_unit_get_count(rightMotorProperties.pcntUnit, &rightMotorProperties.pulses);
-    leftMotorProperties.loopPulses = leftMotorProperties.pulses - lastPulseCountLeftMotor;
-    rightMotorProperties.loopPulses = rightMotorProperties.pulses - lastPulseCountRightMotor;
+void stopLoop(){
+  executingTask = false;
+  lastPulseCountLeftMotor = 0;
+  lastPulseCountRightMotor = 0;
+  esp_timer_stop(loopTimer);
+  leftMotorProperties.motorSpeed = 0;
+  rightMotorProperties.motorSpeed = 0;
+  driveMotor(&leftMotorProperties);
+  driveMotor(&rightMotorProperties);
+  ESP_LOGI("PID", "Lewy silnik: %d", abs(leftMotorProperties.pulses));
+  ESP_LOGI("PID", "Prawy silnik: %d", abs(rightMotorProperties.pulses));
+  ESP_LOGI("PID", "Srednia: %d", (abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2);
+  ESP_LOGI("PID", "Cel: %d", abs(distancePidConf.setPoint));
+  leftMotorProperties.pulses = 0;
+  rightMotorProperties.pulses = 0;
+  pcnt_unit_clear_count(leftMotorProperties.pcntUnit);
+  pcnt_unit_clear_count(rightMotorProperties.pcntUnit);
+}
 
-    if(leftMotorProperties.distance > 0 && rightMotorProperties.distance > 0){
-      float error = distancePidConf.setPoint * pulsesPerRevolution - drivenWheelRevolutions * pulsesPerRevolution;
-    }
-    
-    // set the new speed
-    //pid_compute(pidCtrl, error, &leftMotorSpeed);
-    //leftMotorSpeed /= 140;
-    //if(leftMotorSpeed > 100) leftMotorSpeed = 100;
-    //leftMotorSpeed = speedSetPoint;
-    driveMotor(&leftMotorProperties);
-    driveMotor(&rightMotorProperties);
+void startLoop(){
+  executingTask = true;
+  lastPulseCountLeftMotor = 0;
+  lastPulseCountRightMotor = 0;
+  leftMotorProperties.pulses = 0;
+  rightMotorProperties.pulses = 0;
+  esp_timer_start_periodic(loopTimer, distancePidConf.loopPeriod * 1000);
+}
+
+static void motorLoop(void *args){
+  pid_ctrl_block_handle_t *pidCtrl = (pid_ctrl_block_handle_t *)args;
+  pcnt_unit_get_count(leftMotorProperties.pcntUnit, &leftMotorProperties.pulses);
+  pcnt_unit_get_count(rightMotorProperties.pcntUnit, &rightMotorProperties.pulses);
+  leftMotorProperties.loopPulses = leftMotorProperties.pulses - lastPulseCountLeftMotor;
+  rightMotorProperties.loopPulses = rightMotorProperties.pulses - lastPulseCountRightMotor;
+
+  float errorDistance = abs(distancePidConf.setPoint) - ((abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2);
+  float motorPower = 0;
+  pid_compute(*pidCtrl, errorDistance, &motorPower); // this
+  float errorLeftMotor = motorPower - abs(leftMotorProperties.loopPulses);
+  float errorRightMotor = motorPower - abs(rightMotorProperties.loopPulses);
+  pid_compute(leftMotorProperties.pidCtrl, errorLeftMotor, &leftMotorProperties.motorSpeed);
+  pid_compute(rightMotorProperties.pidCtrl, errorRightMotor, &rightMotorProperties.motorSpeed);
+  leftMotorProperties.motorSpeed = leftMotorProperties.motorSpeed/pulsesPerPowerPercent * maxMotorSpeed * 0.01;
+  rightMotorProperties.motorSpeed = rightMotorProperties.motorSpeed/pulsesPerPowerPercent * maxMotorSpeed * 0.01;
+  if((distancePidConf.setPoint > 0 && errorDistance > 0) || (distancePidConf.setPoint < 0 && errorDistance < 0)){
+    leftMotorProperties.motorDir = 0;
+    rightMotorProperties.motorDir = 1;
+  } else if((distancePidConf.setPoint > 0 && errorDistance < 0) || (distancePidConf.setPoint < 0 && errorDistance > 0)){
+    leftMotorProperties.motorDir = 1;
+    rightMotorProperties.motorDir = 0;
+  }
+
+  driveMotor(&leftMotorProperties);
+  driveMotor(&rightMotorProperties);
+
+  ESP_LOGI("PID", "Lewy silnik: %f", leftMotorProperties.motorSpeed);
+  ESP_LOGI("PID", "Prawy silnik: %f", rightMotorProperties.motorSpeed);
+  ESP_LOGI("PID", "Lewy silnik: %d na %d", abs(leftMotorProperties.pulses), abs(distancePidConf.setPoint));
+  ESP_LOGI("PID", "Prawy silnik: %d na %d", abs(rightMotorProperties.pulses), abs(distancePidConf.setPoint));
 }
 
 void startMotorService() {
@@ -58,6 +98,8 @@ void startMotorService() {
         &motorServiceConfig.taskHandle,               // task handle
         motorServiceConfig.taskCore          // core you want to run the task on (0 or 1)
     );
+  
+  ESP_LOGI("Controller", "Konfiguracja silnikow zakonczona.");
 }
 
 /*
@@ -67,29 +109,12 @@ A new version of standalone MCPWM could be used, but it'd be time consuming.
 Since time is of the essence, it's been decided to stick with deprecated version.
 */
 void motorServiceTask(void *args){
-  // PID
-  pid_ctrl_parameter_t pidRuntimeParams = {
-      .kp = distancePidConf.pidKp,
-      .ki = distancePidConf.pidKi,
-      .kd = distancePidConf.pidKd,
-      .max_output = distancePidConf.maxOutput,
-      .min_output = distancePidConf.minOutput,
-      .max_integral = distancePidConf.maxIntegral,
-      .min_integral = distancePidConf.minIntegral,
-      .cal_type = PID_CAL_TYPE_POSITIONAL,
-  };
-  pid_ctrl_block_handle_t pidCtrl = NULL;
-  pid_ctrl_config_t pidConfig = {
-      .init_param = pidRuntimeParams,
-  };
-  ESP_ERROR_CHECK(pid_new_control_block(&pidConfig, &pidCtrl));
-
   // PWM start
   ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, leftMotorProperties.pwmPin));
   ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, rightMotorProperties.pwmPin));
 
   // motor PID
-  pidRuntimeParams = {
+  pid_ctrl_parameter_t pidRuntimeParams = {
       .kp = leftMotorPid.pidKp,
       .ki = leftMotorPid.pidKi,
       .kd = leftMotorPid.pidKd,
@@ -99,11 +124,11 @@ void motorServiceTask(void *args){
       .min_integral = leftMotorPid.minIntegral,
       .cal_type = PID_CAL_TYPE_POSITIONAL,
   };
-  pidCtrl = NULL;
-  pidConfig = {
+  pid_ctrl_block_handle_t pidCtrl = NULL;
+  pid_ctrl_config_t pidConf = {
       .init_param = pidRuntimeParams,
   };
-  ESP_ERROR_CHECK(pid_new_control_block(&pidConfig, &pidCtrl));
+  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &pidCtrl));
   leftMotorProperties.pidCtrl = pidCtrl;
   
   pidRuntimeParams = {
@@ -117,11 +142,28 @@ void motorServiceTask(void *args){
       .cal_type = PID_CAL_TYPE_POSITIONAL,
   };
   pidCtrl = NULL;
-  pidConfig = {
+  pidConf = {
       .init_param = pidRuntimeParams,
   };
-  ESP_ERROR_CHECK(pid_new_control_block(&pidConfig, &pidCtrl));
+  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &pidCtrl));
   rightMotorProperties.pidCtrl = pidCtrl;
+
+  // PID
+  pidRuntimeParams = {
+      .kp = distancePidConf.pidKp,
+      .ki = distancePidConf.pidKi,
+      .kd = distancePidConf.pidKd,
+      .max_output = distancePidConf.maxOutput,
+      .min_output = distancePidConf.minOutput,
+      .max_integral = distancePidConf.maxIntegral,
+      .min_integral = distancePidConf.minIntegral,
+      .cal_type = PID_CAL_TYPE_POSITIONAL,
+  };
+  pidCtrl = NULL;
+  pidConf = {
+      .init_param = pidRuntimeParams,
+  };
+  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &pidCtrl));
 
   // motor loop
   const esp_timer_create_args_t loopTimerArgs = {
@@ -129,12 +171,16 @@ void motorServiceTask(void *args){
       .arg = &pidCtrl,
       .name = "motorLoop"
   };
-  esp_timer_handle_t loopTimer = NULL;
   ESP_ERROR_CHECK(esp_timer_create(&loopTimerArgs, &loopTimer));
-  ESP_ERROR_CHECK(esp_timer_start_periodic(loopTimer, distancePidConf.loopPeriod * 1000));
   
   while(true) {
-      vTaskDelay(pdMS_TO_TICKS(500));
+    if(executingTask){
+      if(((abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2 < abs(distancePidConf.setPoint) + 100)
+        &&
+        ((abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2 > abs(distancePidConf.setPoint) -100))
+        stopLoop();
+    }
+    vTaskDelay(pdMS_TO_TICKS(distancePidConf.loopPeriod));
   }
 }
 

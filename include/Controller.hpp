@@ -1,6 +1,5 @@
 #ifndef ROACH_CONTR_H
 #define ROACH_CONTR_H
-#include "Config.hpp"
 #include "../components/pid_ctrl/include/pid_ctrl.h"
 #include <driver/gpio.h>
 #include <driver/mcpwm.h>
@@ -28,4 +27,6 @@ extern motorProperties leftMotorProperties, rightMotorProperties;
 extern bool executingTask;
 
 void startMotorService();
+void startLoop();
+void stopLoop();
 #endif

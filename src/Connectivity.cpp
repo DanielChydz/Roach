@@ -33,9 +33,6 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
             ESP_LOGI("Wi-Fi", "Polaczono z siecia wifi.");
             disconnectAction = false;
             vTaskDelete(printDotsWhileConnectingToWifiConfig.taskHandle);
-            break;
-        case WIFI_EVENT_WIFI_READY:
-            ESP_LOGI("Wi-Fi", "Wifi gotowe do dzialania.");
             connected = true;
             if(!firstBoot){
                 vTaskResume(udpClientConfig.taskHandle);
@@ -46,7 +43,6 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
         case WIFI_EVENT_STA_DISCONNECTED:
             if(!disconnectAction){
                 ESP_LOGW("Wi-Fi", "Brak polaczenia z wifi. Zatrzymywanie systemu.");
-                //brake();
                 if(connected){
                     vTaskSuspend(udpClientConfig.taskHandle);
                     vTaskSuspend(udpServerConfig.taskHandle);
@@ -60,6 +56,7 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
                     &printDotsWhileConnectingToWifiConfig.taskHandle,               // Task handle
                     printDotsWhileConnectingToWifiConfig.taskCore          // Core you want to run the task on (0 or 1)
                 );
+                if(!firstBoot) stopLoop();
                 connected = false;
                 disconnectAction = true;
             }
