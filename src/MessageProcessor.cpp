@@ -10,16 +10,16 @@ void processMessage(char* msg){
     if(!key || executingTask) return;
     for(int i = 0; i < 17; i++) newMsg++; // 17 should be calculated on the go instead of hard coded
 
-    while (*newMsg != 'E')
+    while (*newMsg != 'Z')
     {
         switch(*newMsg){
             // both wheels
-            case 'B':
+            case 'A':
                 newMsg++;
                 distancePidConf.setPoint = getValue(newMsg);
                 continue;
             // left wheel
-            case 'L':
+            case 'B':
                 newMsg++;
                 temp = getValue(newMsg);
                 if(temp > 0){
@@ -31,7 +31,7 @@ void processMessage(char* msg){
                 }
                 continue;
             // right wheel
-            case 'R':
+            case 'C':
                 newMsg++;
                 temp = getValue(newMsg);
                 if(temp > 0){
@@ -43,25 +43,66 @@ void processMessage(char* msg){
                 }
                 continue;
             // speed
-            case 'S':
+            case 'D':
                 newMsg++;
                 maxMotorSpeed = getValue(newMsg);
                 continue;
-            // distanceUnit
-            case 'U':
+            // distance PID Kp
+            case 'E':
                 newMsg++;
-                temp = getValue(newMsg);
-                if(temp==0){
-                    distancePidConf.setPoint *= pulsesPerCm;
-                } else if(temp==1){
-                    distancePidConf.setPoint *= pulsesPerRevolution;
-                }
+                distancePidConf.params.kp = getValue(newMsg);
+                continue;
+            // distance PID Ki
+            case 'F':
+                newMsg++;
+                distancePidConf.params.ki = getValue(newMsg);
+                continue;
+            // distance PID Kd
+            case 'G':
+                newMsg++;
+                distancePidConf.params.kd = getValue(newMsg);
+                continue;
+            // left motor PID Kp
+            case 'H':
+                newMsg++;
+                leftMotorPid.params.kp = getValue(newMsg);
+                continue;
+            // left motor PID Ki
+            case 'I':
+                newMsg++;
+                leftMotorPid.params.ki = getValue(newMsg);
+                continue;
+            // left motor PID Kd
+            case 'J':
+                newMsg++;
+                leftMotorPid.params.kd = getValue(newMsg);
+                continue;
+            // right motor PID Kp
+            case 'K':
+                newMsg++;
+                rightMotorPid.params.kp = getValue(newMsg);
+                continue;
+            // right motor PID Ki
+            case 'L':
+                newMsg++;
+                rightMotorPid.params.ki = getValue(newMsg);
+                continue;
+            // right motor PID Kd
+            case 'M':
+                newMsg++;
+                rightMotorPid.params.kd = getValue(newMsg);
                 continue;
             default:
                 newMsg++;
         }
     }
-    if(!executingTask) startLoop();
+    
+    if(!executingTask) {
+        pid_update_parameters(leftMotorProperties.pidCtrl, &leftMotorPid.params);
+        pid_update_parameters(rightMotorProperties.pidCtrl, &rightMotorPid.params);
+        pid_update_parameters(pidHandle, &distancePidConf.params);
+        startLoop();
+    }
 }
 
 // extract values from data

@@ -25,6 +25,7 @@ struct motorProperties{
 
 extern motorProperties leftMotorProperties, rightMotorProperties;
 extern bool executingTask;
+extern pid_ctrl_block_handle_t pidHandle;
 
 void startMotorService();
 void startLoop();

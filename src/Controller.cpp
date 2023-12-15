@@ -6,6 +6,7 @@ bool executingTask = false;
 int lastPulseCountLeftMotor = 0;
 int lastPulseCountRightMotor = 0;
 esp_timer_handle_t loopTimer = NULL;
+pid_ctrl_block_handle_t pidHandle = NULL;
 
 void motorServiceTask(void *args);
 void driveMotor(motorProperties *args);
@@ -114,61 +115,25 @@ void motorServiceTask(void *args){
   ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, rightMotorProperties.pwmPin));
 
   // motor PID
-  pid_ctrl_parameter_t pidRuntimeParams = {
-      .kp = leftMotorPid.pidKp,
-      .ki = leftMotorPid.pidKi,
-      .kd = leftMotorPid.pidKd,
-      .max_output = leftMotorPid.maxOutput,
-      .min_output = leftMotorPid.minOutput,
-      .max_integral = leftMotorPid.maxIntegral,
-      .min_integral = leftMotorPid.minIntegral,
-      .cal_type = PID_CAL_TYPE_POSITIONAL,
-  };
-  pid_ctrl_block_handle_t pidCtrl = NULL;
   pid_ctrl_config_t pidConf = {
-      .init_param = pidRuntimeParams,
+      .init_param = leftMotorPid.params,
   };
-  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &pidCtrl));
-  leftMotorProperties.pidCtrl = pidCtrl;
+  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &leftMotorProperties.pidCtrl));
   
-  pidRuntimeParams = {
-      .kp = rightMotorPid.pidKp,
-      .ki = rightMotorPid.pidKi,
-      .kd = rightMotorPid.pidKd,
-      .max_output = rightMotorPid.maxOutput,
-      .min_output = rightMotorPid.minOutput,
-      .max_integral = rightMotorPid.maxIntegral,
-      .min_integral = rightMotorPid.minIntegral,
-      .cal_type = PID_CAL_TYPE_POSITIONAL,
-  };
-  pidCtrl = NULL;
   pidConf = {
-      .init_param = pidRuntimeParams,
+      .init_param = rightMotorPid.params,
   };
-  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &pidCtrl));
-  rightMotorProperties.pidCtrl = pidCtrl;
+  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &rightMotorProperties.pidCtrl));
 
-  // PID
-  pidRuntimeParams = {
-      .kp = distancePidConf.pidKp,
-      .ki = distancePidConf.pidKi,
-      .kd = distancePidConf.pidKd,
-      .max_output = distancePidConf.maxOutput,
-      .min_output = distancePidConf.minOutput,
-      .max_integral = distancePidConf.maxIntegral,
-      .min_integral = distancePidConf.minIntegral,
-      .cal_type = PID_CAL_TYPE_POSITIONAL,
-  };
-  pidCtrl = NULL;
   pidConf = {
-      .init_param = pidRuntimeParams,
+      .init_param = distancePidConf.params,
   };
-  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &pidCtrl));
+  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &pidHandle));
 
   // motor loop
   const esp_timer_create_args_t loopTimerArgs = {
       .callback = motorLoop,
-      .arg = &pidCtrl,
+      .arg = &pidHandle,
       .name = "motorLoop"
   };
   ESP_ERROR_CHECK(esp_timer_create(&loopTimerArgs, &loopTimer));
@@ -250,10 +215,6 @@ void configureMotor(motorProperties *args){
   ESP_ERROR_CHECK(pcnt_unit_clear_count(pcntUnit));
   ESP_ERROR_CHECK(pcnt_unit_start(pcntUnit));
   motor->pcntUnit = pcntUnit;
-}
-
-void brake(){
-  // TODO
 }
 
 void driveMotor(motorProperties *args){

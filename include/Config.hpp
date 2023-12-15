@@ -22,15 +22,9 @@ struct connectivityConfig{
 };
 
 struct pidConfig{
-  int setPoint;
+  pid_ctrl_parameter_t params;
   const uint16_t loopPeriod;
-  const float pidKp;
-  const float pidKi;
-  const float pidKd;
-  const float maxOutput;
-  const float minOutput;
-  const float maxIntegral;
-  const float minIntegral;
+  int setPoint;
 };
 
 extern pidConfig distancePidConf;

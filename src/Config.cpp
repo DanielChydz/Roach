@@ -52,36 +52,45 @@ int maxMotorSpeed = 100;
 
 // PID config
 pidConfig distancePidConf = {
-  .loopPeriod = 500,
-  .pidKp = 0.8,
-  .pidKi = 0.2,
-  .pidKd = 0.5,
-  .maxOutput = 10000,
-  .minOutput = 10000,
-  .maxIntegral = 10000,
-  .minIntegral = 10000,
+    .params = {
+        .kp = 0.8,
+        .ki = 0.2,
+        .kd = 0.5,
+        .max_output = 10000,
+        .min_output = 0,
+        .max_integral = 10000,
+        .min_integral = 0,
+    },
+    .loopPeriod = 500,
+    .setPoint = 0,
 };
 
 pidConfig leftMotorPid = {
-  .loopPeriod = 500,
-  .pidKp = 0.8,
-  .pidKi = 0.6,
-  .pidKd = 0.5,
-  .maxOutput = 10000,
-  .minOutput = 0,
-  .maxIntegral = 10000,
-  .minIntegral = 0,
+    .params = {
+        .kp = 0.8,
+        .ki = 0.2,
+        .kd = 0.5,
+        .max_output = 10000,
+        .min_output = 0,
+        .max_integral = 10000,
+        .min_integral = 0,
+    },
+    .loopPeriod = 500,
+    .setPoint = 0,
 };
 
 pidConfig rightMotorPid = {
-  .loopPeriod = 500,
-  .pidKp = 0.8,
-  .pidKi = 0.2,
-  .pidKd = 0.5,
-  .maxOutput = 10000,
-  .minOutput = 0,
-  .maxIntegral = 10000,
-  .minIntegral = 0,
+    .params = {
+        .kp = 0.8,
+        .ki = 0.2,
+        .kd = 0.5,
+        .max_output = 10000,
+        .min_output = 0,
+        .max_integral = 10000,
+        .min_integral = 0,
+    },
+    .loopPeriod = 500,
+    .setPoint = 0,
 };
 
 // motor properties
