@@ -18,7 +18,6 @@ with open(csv_filename, 'w', newline='') as csvfile:
             message = data.decode('utf-8')
 
             if message.startswith('DC_Remote_Car_Key'):
-                # Wyszukanie wartości po literze W i D
                 index_w = message.find('W')
                 index_d = message.find('D')
 
@@ -26,7 +25,6 @@ with open(csv_filename, 'w', newline='') as csvfile:
                     value_w = message[index_w + 1:index_d]
                     value_d = message[index_d + 1:message.find('E')]
 
-                    # Zapisanie wartości do pliku CSV
                     csv_writer.writerow([value_w, value_d])
     except KeyboardInterrupt:
         print("Zatrzymano odbieranie pakietów UDP.")
