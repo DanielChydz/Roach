@@ -46,6 +46,7 @@ static void motorLoop(void *args){
   pcnt_unit_get_count(rightMotorProperties.pcntUnit, &rightMotorProperties.pulses);
   leftMotorProperties.loopPulses = leftMotorProperties.pulses - lastPulseCountLeftMotor;
   rightMotorProperties.loopPulses = rightMotorProperties.pulses - lastPulseCountRightMotor;
+  vTaskResume(udpClientConfig.taskHandle);
 
   float errorDistance = abs(distancePidConf.setPoint) - ((abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2);
   float motorPower = 0;

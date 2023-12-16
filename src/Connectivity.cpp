@@ -12,9 +12,12 @@ bool disconnectAction = false;
 bool dots = false;
 bool firstBoot = true;
 
+char messageBuffer[256];
+
 void udpServerTask(void *args);
 void udpClientTask(void *args);
 void wifiServiceTask(void *args);
+const char *udpPreparePayload();
 
 // task printing dots to the console when waiting for the wifi to connect
 void printDotsWhileConnectingToWifi(void *args){
@@ -197,17 +200,17 @@ void udpClientTask(void *args) {
     }
 
     while (1) {
-        const char *message = "Hello, UDP server!";
+        const char *message = udpPreparePayload();
         int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
         if (err < 0) {
             ESP_LOGE("UDP Client", "Blad przy wysylaniu pakietu, nr bledu: %d", errno);
         } else {
-            //ESP_LOGI("UDP Client", "Wyslano pakiet danych.");
+            ESP_LOGI("UDP Client", "Wyslano pakiet danych.");
         }
 
         // TODO: make the loop only send data when there's actually something to send. Don't loop pointlessly.
         // One of the possible solutions is using vTaskSuspend and vTaskResume.
-        vTaskDelay(udpClientConfig.taskLoopDelay / portTICK_PERIOD_MS);
+        vTaskSuspend(udpClientConfig.taskHandle);
     }
 
     if (sock != -1) {
@@ -219,14 +222,17 @@ void udpClientTask(void *args) {
 }
 
 // prepare udp payload before sending
-void udpPreparePayload(int subject){
-    char messageBuffer[256];
+const char *udpPreparePayload(){
     string messageBufferString;
 
-    messageBufferString.append("1");
-    messageBufferString.append(to_string(123).substr(0, 5));
-    messageBufferString.append("2");
+    messageBufferString.append("DC_Remote_Car_Key");
+    messageBufferString.append("L");
+    messageBufferString.append(to_string(leftMotorProperties.pulses));
+    messageBufferString.append("P");
+    messageBufferString.append(to_string(rightMotorProperties.pulses));
+    messageBufferString.append("E");
     strcpy(messageBuffer, messageBufferString.c_str());
     // udpSend(messageBuffer);
     messageBufferString = "";
+    return messageBuffer;
 }
