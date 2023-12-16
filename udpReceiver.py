@@ -7,7 +7,7 @@ UDP_PORT = 4321
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
 
-csv_filename = 'dane.csv'
+csv_filename = 'Data.csv'
 with open(csv_filename, 'w', newline='') as csvfile:
     csv_writer = csv.writer(csvfile)
 
