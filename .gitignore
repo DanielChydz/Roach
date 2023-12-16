@@ -4,6 +4,9 @@
 # Credentials header file
 Credentials.hpp
 
+# Data from UDP
+Data.csv
+
 ### C++ ###
 # Prerequisites
 *.d
