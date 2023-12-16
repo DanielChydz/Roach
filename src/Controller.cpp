@@ -25,6 +25,9 @@ void stopLoop(){
   ESP_LOGI("PID", "Prawy silnik: %d", abs(rightMotorProperties.pulses));
   ESP_LOGI("PID", "Srednia: %d", (abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2);
   ESP_LOGI("PID", "Cel: %d", abs(distancePidConf.setPoint));
+  lastMeasure = true;
+  vTaskResume(udpClientConfig.taskHandle);
+  vTaskDelay(pdMS_TO_TICKS(50));
   leftMotorProperties.pulses = 0;
   rightMotorProperties.pulses = 0;
   pcnt_unit_clear_count(leftMotorProperties.pcntUnit);
@@ -33,6 +36,7 @@ void stopLoop(){
 
 void startLoop(){
   executingTask = true;
+  lastMeasure = false;
   lastPulseCountLeftMotor = 0;
   lastPulseCountRightMotor = 0;
   leftMotorProperties.pulses = 0;

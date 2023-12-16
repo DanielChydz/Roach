@@ -3,7 +3,7 @@
 #include "Config.hpp"
 #include <esp_timer.h>
 
-extern bool connected;
+extern bool connected, lastMeasure;
 
 void startWifiService();
 

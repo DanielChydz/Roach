@@ -11,6 +11,7 @@ bool connected = false;
 bool disconnectAction = false;
 bool dots = false;
 bool firstBoot = true;
+bool lastMeasure = false;
 
 char messageBuffer[256];
 
@@ -210,7 +211,7 @@ void udpClientTask(void *args) {
 
         // TODO: make the loop only send data when there's actually something to send. Don't loop pointlessly.
         // One of the possible solutions is using vTaskSuspend and vTaskResume.
-        vTaskSuspend(udpClientConfig.taskHandle);
+        vTaskSuspend(NULL);
     }
 
     if (sock != -1) {
@@ -226,11 +227,14 @@ const char *udpPreparePayload(){
     string messageBufferString;
 
     messageBufferString.append("DC_Remote_Car_Key");
-    messageBufferString.append("L");
-    messageBufferString.append(to_string(leftMotorProperties.pulses));
-    messageBufferString.append("P");
-    messageBufferString.append(to_string(rightMotorProperties.pulses));
-    messageBufferString.append("E");
+    if(!lastMeasure){
+        messageBufferString.append("L");
+        messageBufferString.append(to_string(leftMotorProperties.pulses));
+        messageBufferString.append("P");
+        messageBufferString.append(to_string(rightMotorProperties.pulses));
+    } else {
+        messageBufferString.append("E");
+    }
     strcpy(messageBuffer, messageBufferString.c_str());
     // udpSend(messageBuffer);
     messageBufferString = "";

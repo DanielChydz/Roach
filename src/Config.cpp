@@ -2,7 +2,7 @@
 
 // connectivity config
 connectivityConfig connData = {
-    .udpSendAddress = "192.168.88.240",
+    .udpSendAddress = "192.168.88.180",
     .udpSendPort = 4322,
     .udpReceivePort = 4321,
     .keyWord = "DC_Remote_Car_Key",
