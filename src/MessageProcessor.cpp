@@ -1,6 +1,6 @@
 #include "MessageProcessor.hpp"
 
-int getValue(char* msg);
+float getValue(char* msg);
 int getKey(char* msg);
 
 void processMessage(char* msg){
@@ -16,29 +16,25 @@ void processMessage(char* msg){
             // both wheels
             case 'A':
                 newMsg++;
-                distancePidConf.setPoint = getValue(newMsg);
+                distancePidConf.setPoint = getValue(newMsg) * pulsesPerCm;
                 continue;
             // left wheel
             case 'B':
                 newMsg++;
-                temp = getValue(newMsg);
-                if(temp > 0){
-                    leftMotorProperties.distance = temp;
+                leftMotorProperties.distance = getValue(newMsg) * pulsesPerCm;
+                if(leftMotorProperties.distance > 0){
                     leftMotorProperties.motorDir = 0;
-                } else if(temp < 0){
-                    rightMotorProperties.distance = temp * (-1);
+                } else if(leftMotorProperties.distance < 0){
                     leftMotorProperties.motorDir = 1;
                 }
                 continue;
             // right wheel
             case 'C':
                 newMsg++;
-                temp = getValue(newMsg);
+                rightMotorProperties.distance = getValue(newMsg) * pulsesPerCm;
                 if(temp > 0){
-                    rightMotorProperties.distance = temp;
                     rightMotorProperties.motorDir = 1;
                 } else if(temp < 0){
-                    rightMotorProperties.distance = temp * (-1);
                     rightMotorProperties.motorDir = 0;
                 }
                 continue;
@@ -46,6 +42,12 @@ void processMessage(char* msg){
             case 'D':
                 newMsg++;
                 maxMotorSpeed = getValue(newMsg);
+                distancePidConf.params.max_integral = 10000 * maxMotorSpeed * 0.01;
+                leftMotorPid.params.max_integral = 10000 * maxMotorSpeed * 0.01;
+                rightMotorPid.params.max_integral = 10000 * maxMotorSpeed * 0.01;
+                distancePidConf.params.max_output = 10000 * maxMotorSpeed * 0.01;
+                leftMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
+                rightMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
                 continue;
             // distance PID Kp
             case 'E':
@@ -66,6 +68,7 @@ void processMessage(char* msg){
             case 'H':
                 newMsg++;
                 leftMotorPid.params.kp = getValue(newMsg);
+                
                 continue;
             // left motor PID Ki
             case 'I':
@@ -97,23 +100,25 @@ void processMessage(char* msg){
         }
     }
     
-    if(!executingTask) {
-        pid_update_parameters(leftMotorProperties.pidCtrl, &leftMotorPid.params);
-        pid_update_parameters(rightMotorProperties.pidCtrl, &rightMotorPid.params);
-        pid_update_parameters(pidHandle, &distancePidConf.params);
-        startLoop();
-    }
+    startLoop();
 }
 
 // extract values from data
-int getValue(char* msg){
-    int val=0;
+float getValue(char* msg){
+    float val=0;
     bool negative = false;
-    while (isdigit(*msg) || *msg == '-'){
-        if(*msg != '-'){
-            val=(val*10)+(*msg-'0');
-        } else {
+    bool fraction = false;
+    while (isdigit(*msg) || *msg == '-' || *msg == '.'){
+        if(isdigit(*msg)){
+            if(!fraction){
+                val = (val*10)+(*msg-'0');
+            } else{
+                val += (*msg-'0')/10.0;
+            }
+        } else if(*msg == '-'){
             negative = true;
+        } else {
+            fraction = true;
         }
         msg++;
     }

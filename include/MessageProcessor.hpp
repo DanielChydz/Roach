@@ -3,6 +3,7 @@
 #include "Config.hpp"
 #include <ctype.h> // isdigit
 #include <string.h> // strcmp
+#include <esp_log.h>
 
 void processMessage(char* msg);
 

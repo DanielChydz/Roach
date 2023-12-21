@@ -53,43 +53,41 @@ int maxMotorSpeed = 100;
 // PID config
 pidConfig distancePidConf = {
     .params = {
-        .kp = 0.8,
-        .ki = 0.2,
-        .kd = 0.5,
-        .max_output = 10000,
+        .kp = 0,
+        .ki = 0,
+        .kd = 0,
+        .max_output = 0,
         .min_output = 0,
-        .max_integral = 10000,
+        .max_integral = 0,
         .min_integral = 0,
     },
-    .loopPeriod = 500,
+    .loopPeriod = 50,
     .setPoint = 0,
 };
 
 pidConfig leftMotorPid = {
     .params = {
-        .kp = 0.8,
-        .ki = 0.2,
-        .kd = 0.5,
-        .max_output = 10000,
+        .kp = 0,
+        .ki = 0,
+        .kd = 0,
+        .max_output = 0,
         .min_output = 0,
-        .max_integral = 10000,
+        .max_integral = 0,
         .min_integral = 0,
     },
-    .loopPeriod = 500,
     .setPoint = 0,
 };
 
 pidConfig rightMotorPid = {
     .params = {
-        .kp = 0.8,
-        .ki = 0.2,
-        .kd = 0.5,
-        .max_output = 10000,
+        .kp = 0,
+        .ki = 0,
+        .kd = 0,
+        .max_output = 0,
         .min_output = 0,
-        .max_integral = 10000,
+        .max_integral = 0,
         .min_integral = 0,
     },
-    .loopPeriod = 500,
     .setPoint = 0,
 };
 

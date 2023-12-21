@@ -1,10 +1,11 @@
 #include "Config.hpp"
 #include <esp_log.h>
 #include <esp_timer.h>
+#include <sys/param.h>
 
 bool executingTask = false;
-int lastPulseCountLeftMotor = 0;
-int lastPulseCountRightMotor = 0;
+static int lastPulseCountLeftMotor = 0;
+static int lastPulseCountRightMotor = 0;
 esp_timer_handle_t loopTimer = NULL;
 pid_ctrl_block_handle_t pidHandle = NULL;
 
@@ -21,20 +22,30 @@ void stopLoop(){
   rightMotorProperties.motorSpeed = 0;
   driveMotor(&leftMotorProperties);
   driveMotor(&rightMotorProperties);
+  ESP_LOGI("PID", "Wynik petli =============================================");
   ESP_LOGI("PID", "Lewy silnik: %d", abs(leftMotorProperties.pulses));
   ESP_LOGI("PID", "Prawy silnik: %d", abs(rightMotorProperties.pulses));
   ESP_LOGI("PID", "Srednia: %d", (abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2);
   ESP_LOGI("PID", "Cel: %d", abs(distancePidConf.setPoint));
   lastMeasure = true;
-  vTaskResume(udpClientConfig.taskHandle);
+  //vTaskResume(udpClientConfig.taskHandle);
   vTaskDelay(pdMS_TO_TICKS(50));
   leftMotorProperties.pulses = 0;
   rightMotorProperties.pulses = 0;
   pcnt_unit_clear_count(leftMotorProperties.pcntUnit);
   pcnt_unit_clear_count(rightMotorProperties.pcntUnit);
+  pid_reset_ctrl_block(leftMotorProperties.pidCtrl);
+  pid_reset_ctrl_block(rightMotorProperties.pidCtrl);
+  pid_reset_ctrl_block(pidHandle);
 }
 
 void startLoop(){
+  ESP_LOGI("PID", "Poczatek petli =============================================");
+  ESP_LOGI("PID", "Cel: %d pulsow", distancePidConf.setPoint);
+  pid_update_parameters(leftMotorProperties.pidCtrl, &leftMotorPid.params);
+  pid_update_parameters(rightMotorProperties.pidCtrl, &rightMotorPid.params);
+  pid_update_parameters(pidHandle, &distancePidConf.params);
+  
   executingTask = true;
   lastMeasure = false;
   lastPulseCountLeftMotor = 0;
@@ -50,32 +61,49 @@ static void motorLoop(void *args){
   pcnt_unit_get_count(rightMotorProperties.pcntUnit, &rightMotorProperties.pulses);
   leftMotorProperties.loopPulses = leftMotorProperties.pulses - lastPulseCountLeftMotor;
   rightMotorProperties.loopPulses = rightMotorProperties.pulses - lastPulseCountRightMotor;
-  vTaskResume(udpClientConfig.taskHandle);
+  lastPulseCountLeftMotor = leftMotorProperties.pulses;
+  lastPulseCountRightMotor = rightMotorProperties.pulses;
+  //vTaskResume(udpClientConfig.taskHandle);
 
   float errorDistance = abs(distancePidConf.setPoint) - ((abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2);
   float motorPower = 0;
-  pid_compute(*pidCtrl, errorDistance, &motorPower); // this
-  float errorLeftMotor = motorPower - abs(leftMotorProperties.loopPulses);
-  float errorRightMotor = motorPower - abs(rightMotorProperties.loopPulses);
-  pid_compute(leftMotorProperties.pidCtrl, errorLeftMotor, &leftMotorProperties.motorSpeed);
-  pid_compute(rightMotorProperties.pidCtrl, errorRightMotor, &rightMotorProperties.motorSpeed);
-  leftMotorProperties.motorSpeed = leftMotorProperties.motorSpeed/pulsesPerPowerPercent * maxMotorSpeed * 0.01;
-  rightMotorProperties.motorSpeed = rightMotorProperties.motorSpeed/pulsesPerPowerPercent * maxMotorSpeed * 0.01;
-  if((distancePidConf.setPoint > 0 && errorDistance > 0) || (distancePidConf.setPoint < 0 && errorDistance < 0)){
-    leftMotorProperties.motorDir = 0;
-    rightMotorProperties.motorDir = 1;
-  } else if((distancePidConf.setPoint > 0 && errorDistance < 0) || (distancePidConf.setPoint < 0 && errorDistance > 0)){
-    leftMotorProperties.motorDir = 1;
-    rightMotorProperties.motorDir = 0;
-  }
+  pid_compute(*pidCtrl, errorDistance, &motorPower);
+  // float errorLeftMotor = motorPower - abs(leftMotorProperties.loopPulses);
+  // float errorRightMotor = motorPower - abs(rightMotorProperties.loopPulses);
+  // pid_compute(leftMotorProperties.pidCtrl, errorLeftMotor, &leftMotorProperties.motorSpeed);
+  // pid_compute(rightMotorProperties.pidCtrl, errorRightMotor, &rightMotorProperties.motorSpeed);
+  // leftMotorProperties.motorSpeed = leftMotorProperties.motorSpeed / pulsesPerPowerPercent;
+  // rightMotorProperties.motorSpeed = rightMotorProperties.motorSpeed / pulsesPerPowerPercent;
+  // if((distancePidConf.setPoint > 0 && errorDistance > 0) || (distancePidConf.setPoint < 0 && errorDistance < 0)){
+  //   leftMotorProperties.motorDir = 0;
+  //   rightMotorProperties.motorDir = 1;
+  // } else if((distancePidConf.setPoint > 0 && errorDistance < 0) || (distancePidConf.setPoint < 0 && errorDistance > 0)){
+  //   leftMotorProperties.motorDir = 1;
+  //   rightMotorProperties.motorDir = 0;
+  // }
+
+  leftMotorProperties.motorSpeed = motorPower / 100;
+  rightMotorProperties.motorSpeed = motorPower / 100;
+
+  leftMotorProperties.motorSpeed = MIN(leftMotorProperties.motorSpeed, 0);
+  leftMotorProperties.motorSpeed = MAX(leftMotorProperties.motorSpeed, 100);
+  rightMotorProperties.motorSpeed = MIN(rightMotorProperties.motorSpeed, 0);
+  rightMotorProperties.motorSpeed = MAX(rightMotorProperties.motorSpeed, 100);
 
   driveMotor(&leftMotorProperties);
   driveMotor(&rightMotorProperties);
 
-  ESP_LOGI("PID", "Lewy silnik: %f", leftMotorProperties.motorSpeed);
-  ESP_LOGI("PID", "Prawy silnik: %f", rightMotorProperties.motorSpeed);
-  ESP_LOGI("PID", "Lewy silnik: %d na %d", abs(leftMotorProperties.pulses), abs(distancePidConf.setPoint));
-  ESP_LOGI("PID", "Prawy silnik: %d na %d", abs(rightMotorProperties.pulses), abs(distancePidConf.setPoint));
+  ESP_LOGI("PID", "error: %f", errorDistance);
+  ESP_LOGI("PID", "motorPower: %f", motorPower);
+  ESP_LOGI("PID", "pulses: %d", leftMotorProperties.pulses);
+  ESP_LOGI("PID", "pulses: %d", rightMotorProperties.pulses);
+  ESP_LOGI("PID", "motorSpeed: %f", leftMotorProperties.motorSpeed);
+  ESP_LOGI("PID", "motorSpeed: %f", rightMotorProperties.motorSpeed);
+
+  // ESP_LOGI("PID", "Lewy silnik: %f", leftMotorProperties.motorSpeed);
+  // ESP_LOGI("PID", "Prawy silnik: %f", rightMotorProperties.motorSpeed);
+  // ESP_LOGI("PID", "Lewy silnik: %d na %d", abs(leftMotorProperties.pulses), abs(distancePidConf.setPoint));
+  // ESP_LOGI("PID", "Prawy silnik: %d na %d", abs(rightMotorProperties.pulses), abs(distancePidConf.setPoint));
 }
 
 void startMotorService() {
