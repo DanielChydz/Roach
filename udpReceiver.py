@@ -1,39 +1,60 @@
 import socket
 import csv
-import sys
 import msvcrt
 
-UDP_IP = "127.0.0.1"
-UDP_PORT = 4321
+UDP_IP = "0.0.0.0"
+UDP_PORT = 4322
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind((UDP_IP, UDP_PORT))
+while True:
+    print("Rozpoczynanie pomiaru.")
+    csv_filename = 'Data.csv'
+    
+    f = open(csv_filename, "w")
+    f.truncate()
+    f.close()
 
-csv_filename = 'Data.csv'
-with open(csv_filename, 'w', newline='') as csvfile:
-    csv_writer = csv.writer(csvfile)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind((UDP_IP, UDP_PORT))
 
-    try:
-        print("Program rozpoczął działanie. Oczekiwanie na pakiety UDP...")
-        while True:
-            data, addr = sock.recvfrom(1024)
+    with open(csv_filename, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
 
-            message = data.decode('utf-8')
-            if message.endswith('E'):
-                print("Program zakończył działanie.")
-                sys.exit(0)
+        try:
+            while True:
+                data, addr = sock.recvfrom(1024)
 
-            if message.startswith('DC_Remote_Car_Key'):
-                index_l = message.find('L')
-                index_p = message.find('P')
+                message = data.decode('utf-8')
+                print("Odebrano pakiet: ", message)
 
-                if index_l != -1 and index_p != -1:
-                    value_l = message[index_l + 1:index_p]
-                    value_p = message[index_p + 1:]
+                if message.endswith('Z'):
+                    print("Zakończono pomiar. Wcisnij dowolny przycisk by rozpoczac kolejny.")
+                    while not msvcrt.kbhit():
+                        pass
+                    msvcrt.getch()
+                    break
 
-                    csv_writer.writerow([value_l, value_p])
-            
-    except Exception as e:
-        print(f"Wystąpił błąd: {e}")
-    finally:
-        sock.close()
+                if message.startswith('DC_Remote_Car_Key'):
+                    message = message[17:]
+                    index_a = message.find('A')
+                    index_b = message.find('B')
+                    index_c = message.find('C')
+                    index_d = message.find('D')
+                    index_e = message.find('E')
+                    index_f = message.find('F')
+                    index_g = message.find('G')
+
+                    value_a = message[index_a + 1:index_b]
+                    value_b = message[index_b + 1:index_c]
+                    value_c = message[index_c + 1:index_d]
+                    value_d = message[index_d + 1:index_e]
+                    value_e = message[index_e + 1:index_f]
+                    value_f = message[index_f + 1:index_g]
+                    value_g = message[index_g + 1:]
+
+                    csv_writer.writerow([value_a, value_b, value_c, value_d, value_e, value_f, value_g])
+                    csvfile.flush()
+
+        except Exception as e:
+            print(f"Wystąpił błąd: {e}")
+        finally:
+            sock.close()
