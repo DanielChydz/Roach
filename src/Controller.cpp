@@ -2,24 +2,37 @@
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <sys/param.h>
+#include <cmath>
+#include <deque>
+#include <numeric>
+#include <algorithm>
 
 bool executingTask = false;
 static int lastPulseCountLeftMotor = 0;
 static int lastPulseCountRightMotor = 0;
-esp_timer_handle_t loopTimer = NULL;
-pid_ctrl_block_handle_t pidHandle = NULL;
+static deque<int> pidOutput;
+static deque<int> pidOutputLeft;
+static deque<int> pidOutputRight;
+static esp_timer_handle_t loopTimer = NULL;
+static pid_ctrl_block_handle_t pidHandle = NULL;
+
+measurementData measurements;
 
 void motorServiceTask(void *args);
 void driveMotor(motorProperties *args);
 void configureMotor(motorProperties *args);
+std::pair<float, float> calculateMeanAndSampleStandardDeviation(const std::deque<int>& data);
 
 void stopLoop(){
   executingTask = false;
+  esp_timer_stop(loopTimer);
   lastPulseCountLeftMotor = 0;
   lastPulseCountRightMotor = 0;
-  esp_timer_stop(loopTimer);
   leftMotorProperties.motorSpeed = 0;
   rightMotorProperties.motorSpeed = 0;
+  pidOutput.clear();
+  pidOutputLeft.clear();
+  pidOutputRight.clear();
   driveMotor(&leftMotorProperties);
   driveMotor(&rightMotorProperties);
   ESP_LOGI("PID", "Wynik petli =============================================");
@@ -28,8 +41,12 @@ void stopLoop(){
   ESP_LOGI("PID", "Srednia: %d", (abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2);
   ESP_LOGI("PID", "Cel: %d", abs(distancePidConf.setPoint));
   lastMeasure = true;
-  //vTaskResume(udpClientConfig.taskHandle);
+  xTaskNotifyGive(udpClientConfig.taskHandle);
   vTaskDelay(pdMS_TO_TICKS(50));
+  measurements.lowerThreshold = 0;
+  measurements.upperThreshold = 0;
+  measurements.mean = 0;
+  measurements.standardDeviation = 0;
   leftMotorProperties.pulses = 0;
   rightMotorProperties.pulses = 0;
   pcnt_unit_clear_count(leftMotorProperties.pcntUnit);
@@ -57,48 +74,54 @@ void startLoop(){
 
 static void motorLoop(void *args){
   pid_ctrl_block_handle_t *pidCtrl = (pid_ctrl_block_handle_t *)args;
+  int mean = (abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2;
   pcnt_unit_get_count(leftMotorProperties.pcntUnit, &leftMotorProperties.pulses);
   pcnt_unit_get_count(rightMotorProperties.pcntUnit, &rightMotorProperties.pulses);
   leftMotorProperties.loopPulses = leftMotorProperties.pulses - lastPulseCountLeftMotor;
   rightMotorProperties.loopPulses = rightMotorProperties.pulses - lastPulseCountRightMotor;
   lastPulseCountLeftMotor = leftMotorProperties.pulses;
   lastPulseCountRightMotor = rightMotorProperties.pulses;
-  //vTaskResume(udpClientConfig.taskHandle);
+  if(mean > distancePidConf.setPoint - 1000){
+    pidOutput.push_front(mean);
+    pidOutputLeft.push_front(abs(leftMotorProperties.pulses));
+    pidOutputRight.push_front(abs(rightMotorProperties.pulses));
+    if(pidOutput.size() > 20) pidOutput.pop_back();
+    if(pidOutputLeft.size() > 20) pidOutputLeft.pop_back();
+    if(pidOutputRight.size() > 20) pidOutputRight.pop_back();
+  }
 
-  float errorDistance = abs(distancePidConf.setPoint) - ((abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2);
+  xTaskNotifyGive(udpClientConfig.taskHandle);
+  xTaskNotifyGive(motorServiceConfig.taskHandle);
+
+  float errorDistance = abs(distancePidConf.setPoint) - mean;
+  errorDistance = MAX(MIN(errorDistance, 10000), -10000);
   float motorPower = 0;
   pid_compute(*pidCtrl, errorDistance, &motorPower);
+
   // float errorLeftMotor = motorPower - abs(leftMotorProperties.loopPulses);
   // float errorRightMotor = motorPower - abs(rightMotorProperties.loopPulses);
   // pid_compute(leftMotorProperties.pidCtrl, errorLeftMotor, &leftMotorProperties.motorSpeed);
   // pid_compute(rightMotorProperties.pidCtrl, errorRightMotor, &rightMotorProperties.motorSpeed);
-  // leftMotorProperties.motorSpeed = leftMotorProperties.motorSpeed / pulsesPerPowerPercent;
-  // rightMotorProperties.motorSpeed = rightMotorProperties.motorSpeed / pulsesPerPowerPercent;
-  // if((distancePidConf.setPoint > 0 && errorDistance > 0) || (distancePidConf.setPoint < 0 && errorDistance < 0)){
-  //   leftMotorProperties.motorDir = 0;
-  //   rightMotorProperties.motorDir = 1;
-  // } else if((distancePidConf.setPoint > 0 && errorDistance < 0) || (distancePidConf.setPoint < 0 && errorDistance > 0)){
-  //   leftMotorProperties.motorDir = 1;
-  //   rightMotorProperties.motorDir = 0;
-  // }
+  leftMotorProperties.motorSpeed = motorPower / pulsesPerPowerPercent;
+  rightMotorProperties.motorSpeed = motorPower / pulsesPerPowerPercent;
 
-  leftMotorProperties.motorSpeed = motorPower / 100;
-  rightMotorProperties.motorSpeed = motorPower / 100;
-
-  leftMotorProperties.motorSpeed = MIN(leftMotorProperties.motorSpeed, 0);
-  leftMotorProperties.motorSpeed = MAX(leftMotorProperties.motorSpeed, 100);
-  rightMotorProperties.motorSpeed = MIN(rightMotorProperties.motorSpeed, 0);
-  rightMotorProperties.motorSpeed = MAX(rightMotorProperties.motorSpeed, 100);
-
-  driveMotor(&leftMotorProperties);
-  driveMotor(&rightMotorProperties);
+  if((distancePidConf.setPoint > 0 && errorDistance > 0) || (distancePidConf.setPoint < 0 && errorDistance < 0)){
+    leftMotorProperties.motorDir = 0;
+    rightMotorProperties.motorDir = 1;
+  } else if((distancePidConf.setPoint > 0 && errorDistance < 0) || (distancePidConf.setPoint < 0 && errorDistance > 0)){
+    leftMotorProperties.motorDir = 1;
+    rightMotorProperties.motorDir = 0;
+  }
 
   ESP_LOGI("PID", "error: %f", errorDistance);
   ESP_LOGI("PID", "motorPower: %f", motorPower);
-  ESP_LOGI("PID", "pulses: %d", leftMotorProperties.pulses);
-  ESP_LOGI("PID", "pulses: %d", rightMotorProperties.pulses);
+  ESP_LOGI("PID", "left pulses: %d", leftMotorProperties.pulses);
+  ESP_LOGI("PID", "right pulses: %d", rightMotorProperties.pulses);
   ESP_LOGI("PID", "motorSpeed: %f", leftMotorProperties.motorSpeed);
   ESP_LOGI("PID", "motorSpeed: %f", rightMotorProperties.motorSpeed);
+
+  driveMotor(&leftMotorProperties);
+  driveMotor(&rightMotorProperties);
 
   // ESP_LOGI("PID", "Lewy silnik: %f", leftMotorProperties.motorSpeed);
   // ESP_LOGI("PID", "Prawy silnik: %f", rightMotorProperties.motorSpeed);
@@ -143,6 +166,10 @@ A new version of standalone MCPWM could be used, but it'd be time consuming.
 Since time is of the essence, it's been decided to stick with deprecated version.
 */
 void motorServiceTask(void *args){
+  float lowerThreshold;
+  float upperThreshold;
+  bool leftInRange;
+  bool rightInRange;
   // PWM start
   ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, leftMotorProperties.pwmPin));
   ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, rightMotorProperties.pwmPin));
@@ -172,13 +199,30 @@ void motorServiceTask(void *args){
   ESP_ERROR_CHECK(esp_timer_create(&loopTimerArgs, &loopTimer));
   
   while(true) {
-    if(executingTask){
-      if(((abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2 < abs(distancePidConf.setPoint) + 100)
-        &&
-        ((abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2 > abs(distancePidConf.setPoint) -100))
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    if(executingTask && (pidOutput.size() == 20)){
+      auto meanAndStdDev = calculateMeanAndSampleStandardDeviation(pidOutput);
+      measurements.mean = meanAndStdDev.first;
+      measurements.standardDeviation = meanAndStdDev.second;
+      lowerThreshold = meanAndStdDev.first - (outputErrorTolerance * 0.01) * meanAndStdDev.second;
+      upperThreshold = meanAndStdDev.first + (outputErrorTolerance * 0.01) * meanAndStdDev.second;
+      measurements.lowerThreshold = lowerThreshold;
+      measurements.upperThreshold = upperThreshold;
+      leftInRange = std::all_of(pidOutputLeft.begin(), pidOutputLeft.end(), [lowerThreshold, upperThreshold](int leftOutput) {
+        return leftOutput >= lowerThreshold && leftOutput <= upperThreshold;
+      });
+      rightInRange = std::all_of(pidOutputRight.begin(), pidOutputRight.end(), [lowerThreshold, upperThreshold](int rightOutput) {
+        return rightOutput >= lowerThreshold && rightOutput <= upperThreshold;
+      });
+
+      ESP_LOGI("check", "up thresh: %f", upperThreshold);
+      ESP_LOGI("check", "low thresh: %f", lowerThreshold);
+      ESP_LOGI("check", "leftrange: %d, rightrange: %d", leftInRange, rightInRange);
+      ESP_LOGI("check", "stddev: %f", meanAndStdDev.second);
+      if(leftInRange && rightInRange){
         stopLoop();
+      }
     }
-    vTaskDelay(pdMS_TO_TICKS(distancePidConf.loopPeriod));
   }
 }
 
@@ -255,4 +299,19 @@ void driveMotor(motorProperties *args){
   ESP_ERROR_CHECK(mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, motor->mcpwmGenerator, motor->motorSpeed));
   gpio_set_level(motor->motorPolarization_IN1, motor->motorDir); 
   gpio_set_level(motor->motorPolarization_IN2, !(motor->motorDir));
+}
+
+std::pair<float, float> calculateMeanAndSampleStandardDeviation(const std::deque<int>& data){
+  if (data.size() <= 1)
+      return {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN()};
+
+  float mean = std::accumulate(data.begin(), data.end(), 0.0) / data.size();
+
+  float sumSquaredDifferences = std::accumulate(data.begin(), data.end(), 0.0, [mean](float acc, float value) {
+      return acc + std::pow(value - mean, 2);
+  });
+
+  float sampleStdDeviation = std::sqrt(sumSquaredDifferences / (data.size() - 1));
+
+  return {mean, sampleStdDeviation};
 }

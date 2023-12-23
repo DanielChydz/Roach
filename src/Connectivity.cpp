@@ -199,8 +199,9 @@ void udpClientTask(void *args) {
         vTaskDelete(NULL);
         return;
     }
-
+    
     while (1) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         const char *message = udpPreparePayload();
         int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
         if (err < 0) {
@@ -208,10 +209,6 @@ void udpClientTask(void *args) {
         } else {
             ESP_LOGI("UDP Client", "Wyslano pakiet danych.");
         }
-
-        // TODO: make the loop only send data when there's actually something to send. Don't loop pointlessly.
-        // One of the possible solutions is using vTaskSuspend and vTaskResume.
-        vTaskSuspend(NULL);
     }
 
     if (sock != -1) {
@@ -228,15 +225,30 @@ const char *udpPreparePayload(){
 
     messageBufferString.append("DC_Remote_Car_Key");
     if(!lastMeasure){
-        messageBufferString.append("L");
+        // left motor pulses
+        messageBufferString.append("A");
         messageBufferString.append(to_string(leftMotorProperties.pulses));
-        messageBufferString.append("P");
+        // right motor pulses
+        messageBufferString.append("B");
         messageBufferString.append(to_string(rightMotorProperties.pulses));
-    } else {
+        // set point
+        messageBufferString.append("C");
+        messageBufferString.append(to_string(distancePidConf.setPoint));
+        // upper threshold
+        messageBufferString.append("D");
+        messageBufferString.append(to_string(measurements.upperThreshold));
+        // lower threshold
         messageBufferString.append("E");
+        messageBufferString.append(to_string(measurements.lowerThreshold));
+        // mean
+        messageBufferString.append("F");
+        messageBufferString.append(to_string(measurements.mean));
+        // standard deviation
+        messageBufferString.append("G");
+        messageBufferString.append(to_string(measurements.standardDeviation));
+    } else {
+        messageBufferString.append("Z");
     }
     strcpy(messageBuffer, messageBufferString.c_str());
-    // udpSend(messageBuffer);
-    messageBufferString = "";
     return messageBuffer;
 }

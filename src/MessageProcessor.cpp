@@ -42,9 +42,9 @@ void processMessage(char* msg){
             case 'D':
                 newMsg++;
                 maxMotorSpeed = getValue(newMsg);
-                distancePidConf.params.max_integral = 10000 * maxMotorSpeed * 0.01;
-                leftMotorPid.params.max_integral = 10000 * maxMotorSpeed * 0.01;
-                rightMotorPid.params.max_integral = 10000 * maxMotorSpeed * 0.01;
+                distancePidConf.params.max_integral = 2800 * maxMotorSpeed * 0.01;
+                leftMotorPid.params.max_integral = 2800 * maxMotorSpeed * 0.01;
+                rightMotorPid.params.max_integral = 2800 * maxMotorSpeed * 0.01;
                 distancePidConf.params.max_output = 10000 * maxMotorSpeed * 0.01;
                 leftMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
                 rightMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;

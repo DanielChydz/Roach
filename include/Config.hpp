@@ -47,5 +47,6 @@ extern const int16_t pcntLowLimit;
 extern const gpio_num_t standbyPin;
 extern const uint16_t pulsesPerPowerPercent;
 extern int maxMotorSpeed;
+extern const uint8_t outputErrorTolerance;
 
 #endif
