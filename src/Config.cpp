@@ -118,3 +118,8 @@ motorProperties rightMotorProperties = {
     .motorDir = 1, // 1 = forward
     .mcpwmGenerator = MCPWM_GEN_B,
 };
+
+// LEDs pins
+const gpio_num_t redLED = GPIO_NUM_21;
+const gpio_num_t greenLED = GPIO_NUM_23;
+const gpio_num_t blueLED = GPIO_NUM_22;

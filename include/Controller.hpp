@@ -23,15 +23,6 @@ struct motorProperties{
     bool motorDir;
     mcpwm_generator_t mcpwmGenerator;
 };
-
-struct measurementData{
-    int mean;
-    int standardDeviation;
-    int upperThreshold;
-    int lowerThreshold;
-};
-
-extern measurementData measurements;
 extern motorProperties leftMotorProperties, rightMotorProperties;
 extern bool executingTask;
 

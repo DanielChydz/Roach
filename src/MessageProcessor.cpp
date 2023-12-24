@@ -6,8 +6,9 @@ int getKey(char* msg);
 void processMessage(char* msg){
     char* newMsg = msg;
     bool key = getKey(msg);
-    int temp = 0;
-    if(!key || executingTask) return;
+    bool stopMeasurement = false;
+    float temp;
+    if(!key) return;
     for(int i = 0; i < 17; i++) newMsg++; // 17 should be calculated on the go instead of hard coded
 
     while (*newMsg != 'Z')
@@ -32,19 +33,18 @@ void processMessage(char* msg){
             case 'C':
                 newMsg++;
                 rightMotorProperties.distance = getValue(newMsg) * pulsesPerCm;
-                if(temp > 0){
-                    rightMotorProperties.motorDir = 1;
-                } else if(temp < 0){
-                    rightMotorProperties.motorDir = 0;
-                }
                 continue;
             // speed
             case 'D':
                 newMsg++;
                 maxMotorSpeed = getValue(newMsg);
-                distancePidConf.params.max_integral = 2800 * maxMotorSpeed * 0.01;
-                leftMotorPid.params.max_integral = 2800 * maxMotorSpeed * 0.01;
-                rightMotorPid.params.max_integral = 2800 * maxMotorSpeed * 0.01;
+                temp = pulsesPerRevolution * maxMotorSpeed * 0.01;
+                distancePidConf.params.max_integral = temp;
+                leftMotorPid.params.max_integral = temp;
+                rightMotorPid.params.max_integral = temp;
+                distancePidConf.params.min_integral = -temp;
+                leftMotorPid.params.min_integral = -temp;
+                rightMotorPid.params.min_integral = -temp;
                 distancePidConf.params.max_output = 10000 * maxMotorSpeed * 0.01;
                 leftMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
                 rightMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
@@ -95,12 +95,21 @@ void processMessage(char* msg){
                 newMsg++;
                 rightMotorPid.params.kd = getValue(newMsg);
                 continue;
+            // end measurement
+            case 'Q':
+                newMsg++;
+                stopMeasurement = true;
+                continue;
             default:
                 newMsg++;
         }
     }
     
-    startLoop();
+    if(stopMeasurement){
+        stopLoop();
+    }else if(!executingTask){
+        startLoop();
+    }
 }
 
 // extract values from data

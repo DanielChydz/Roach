@@ -3,6 +3,7 @@
 #include "Controller.hpp"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <driver/gpio.h>
 
 using namespace std;
 
@@ -48,5 +49,10 @@ extern const gpio_num_t standbyPin;
 extern const uint16_t pulsesPerPowerPercent;
 extern int maxMotorSpeed;
 extern const uint8_t outputErrorTolerance;
+
+// LEDs pins
+extern const gpio_num_t redLED;
+extern const gpio_num_t greenLED;
+extern const gpio_num_t blueLED;
 
 #endif
