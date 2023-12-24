@@ -3,9 +3,8 @@
 #include "Config.hpp"
 #include <esp_timer.h>
 
-extern bool connected;
+extern bool connected, lastMeasure;
 
-void udpPreparePayload(int subject);
 void startWifiService();
 
 #endif

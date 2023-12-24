@@ -11,10 +11,14 @@ bool connected = false;
 bool disconnectAction = false;
 bool dots = false;
 bool firstBoot = true;
+bool lastMeasure = false;
+
+char messageBuffer[256];
 
 void udpServerTask(void *args);
 void udpClientTask(void *args);
 void wifiServiceTask(void *args);
+const char *udpPreparePayload();
 
 // task printing dots to the console when waiting for the wifi to connect
 void printDotsWhileConnectingToWifi(void *args){
@@ -32,6 +36,11 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
         case WIFI_EVENT_STA_CONNECTED:
             ESP_LOGI("Wi-Fi", "Polaczono z siecia wifi.");
             disconnectAction = false;
+
+            ESP_ERROR_CHECK(gpio_set_level(redLED, false));
+            ESP_ERROR_CHECK(gpio_set_level(greenLED, true));
+            ESP_ERROR_CHECK(gpio_set_level(blueLED, false));
+
             vTaskDelete(printDotsWhileConnectingToWifiConfig.taskHandle);
             connected = true;
             if(!firstBoot){
@@ -43,6 +52,7 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
         case WIFI_EVENT_STA_DISCONNECTED:
             if(!disconnectAction){
                 ESP_LOGW("Wi-Fi", "Brak polaczenia z wifi. Zatrzymywanie systemu.");
+
                 if(connected){
                     vTaskSuspend(udpClientConfig.taskHandle);
                     vTaskSuspend(udpServerConfig.taskHandle);
@@ -57,6 +67,11 @@ static void wifiEventHandler(void *event_handler_arg, esp_event_base_t event_bas
                     printDotsWhileConnectingToWifiConfig.taskCore          // Core you want to run the task on (0 or 1)
                 );
                 if(!firstBoot) stopLoop();
+
+                ESP_ERROR_CHECK(gpio_set_level(redLED, true));
+                ESP_ERROR_CHECK(gpio_set_level(greenLED, false));
+                ESP_ERROR_CHECK(gpio_set_level(blueLED, false));
+                
                 connected = false;
                 disconnectAction = true;
             }
@@ -195,19 +210,18 @@ void udpClientTask(void *args) {
         vTaskDelete(NULL);
         return;
     }
-
+    
     while (1) {
-        const char *message = "Hello, UDP server!";
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        const char *message = udpPreparePayload();
         int err = sendto(sock, message, strlen(message), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-        if (err < 0) {
+        if(errno == 12){
+            ESP_LOGW("UDP Client", "Urządzenie docelowe jest offline, nie można wysłać pakietu.");
+         } else if(err < 0){
             ESP_LOGE("UDP Client", "Blad przy wysylaniu pakietu, nr bledu: %d", errno);
         } else {
-            //ESP_LOGI("UDP Client", "Wyslano pakiet danych.");
+            ESP_LOGI("UDP Client", "Wyslano pakiet danych.");
         }
-
-        // TODO: make the loop only send data when there's actually something to send. Don't loop pointlessly.
-        // One of the possible solutions is using vTaskSuspend and vTaskResume.
-        vTaskDelay(udpClientConfig.taskLoopDelay / portTICK_PERIOD_MS);
     }
 
     if (sock != -1) {
@@ -219,14 +233,29 @@ void udpClientTask(void *args) {
 }
 
 // prepare udp payload before sending
-void udpPreparePayload(int subject){
-    char messageBuffer[256];
+const char *udpPreparePayload(){
     string messageBufferString;
 
-    messageBufferString.append("1");
-    messageBufferString.append(to_string(123).substr(0, 5));
-    messageBufferString.append("2");
+    messageBufferString.append("DC_Remote_Car_Key");
+    if(!lastMeasure){
+        // left motor pulses
+        messageBufferString.append("A");
+        messageBufferString.append(to_string(leftMotorProperties.pulses));
+        // right motor pulses
+        messageBufferString.append("B");
+        messageBufferString.append(to_string(rightMotorProperties.pulses));
+        // set point
+        messageBufferString.append("C");
+        messageBufferString.append(to_string(distancePidConf.setPoint));
+        // left motor speed
+        messageBufferString.append("D");
+        messageBufferString.append(to_string(leftMotorProperties.motorSpeed));
+        // right motor speed
+        messageBufferString.append("E");
+        messageBufferString.append(to_string(rightMotorProperties.motorSpeed));
+    } else {
+        messageBufferString.append("Z");
+    }
     strcpy(messageBuffer, messageBufferString.c_str());
-    // udpSend(messageBuffer);
-    messageBufferString = "";
+    return messageBuffer;
 }

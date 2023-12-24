@@ -3,6 +3,7 @@
 #include "Controller.hpp"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <driver/gpio.h>
 
 using namespace std;
 
@@ -22,15 +23,9 @@ struct connectivityConfig{
 };
 
 struct pidConfig{
-  int setPoint;
+  pid_ctrl_parameter_t params;
   const uint16_t loopPeriod;
-  const float pidKp;
-  const float pidKi;
-  const float pidKd;
-  const float maxOutput;
-  const float minOutput;
-  const float maxIntegral;
-  const float minIntegral;
+  int setPoint;
 };
 
 extern pidConfig distancePidConf;
@@ -53,5 +48,11 @@ extern const int16_t pcntLowLimit;
 extern const gpio_num_t standbyPin;
 extern const uint16_t pulsesPerPowerPercent;
 extern int maxMotorSpeed;
+extern const uint8_t outputErrorTolerance;
+
+// LEDs pins
+extern const gpio_num_t redLED;
+extern const gpio_num_t greenLED;
+extern const gpio_num_t blueLED;
 
 #endif

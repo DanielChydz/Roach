@@ -1,5 +1,6 @@
 #ifndef ROACH_CONTR_H
 #define ROACH_CONTR_H
+#include "Connectivity.hpp"
 #include "../components/pid_ctrl/include/pid_ctrl.h"
 #include <driver/gpio.h>
 #include <driver/mcpwm.h>
@@ -22,7 +23,6 @@ struct motorProperties{
     bool motorDir;
     mcpwm_generator_t mcpwmGenerator;
 };
-
 extern motorProperties leftMotorProperties, rightMotorProperties;
 extern bool executingTask;
 

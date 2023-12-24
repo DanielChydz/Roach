@@ -1,78 +1,133 @@
 #include "MessageProcessor.hpp"
 
-int getValue(char* msg);
+float getValue(char* msg);
 int getKey(char* msg);
 
 void processMessage(char* msg){
     char* newMsg = msg;
     bool key = getKey(msg);
-    int temp = 0;
-    if(!key || executingTask) return;
+    bool stopMeasurement = false;
+    float temp;
+    if(!key) return;
     for(int i = 0; i < 17; i++) newMsg++; // 17 should be calculated on the go instead of hard coded
 
-    while (*newMsg != 'E')
+    while (*newMsg != 'Z')
     {
         switch(*newMsg){
             // both wheels
-            case 'B':
+            case 'A':
                 newMsg++;
-                distancePidConf.setPoint = getValue(newMsg);
+                distancePidConf.setPoint = getValue(newMsg) * pulsesPerCm;
                 continue;
             // left wheel
-            case 'L':
+            case 'B':
                 newMsg++;
-                temp = getValue(newMsg);
-                if(temp > 0){
-                    leftMotorProperties.distance = temp;
+                leftMotorProperties.distance = getValue(newMsg) * pulsesPerCm;
+                if(leftMotorProperties.distance > 0){
                     leftMotorProperties.motorDir = 0;
-                } else if(temp < 0){
-                    rightMotorProperties.distance = temp * (-1);
+                } else if(leftMotorProperties.distance < 0){
                     leftMotorProperties.motorDir = 1;
                 }
                 continue;
             // right wheel
-            case 'R':
+            case 'C':
                 newMsg++;
-                temp = getValue(newMsg);
-                if(temp > 0){
-                    rightMotorProperties.distance = temp;
-                    rightMotorProperties.motorDir = 1;
-                } else if(temp < 0){
-                    rightMotorProperties.distance = temp * (-1);
-                    rightMotorProperties.motorDir = 0;
-                }
+                rightMotorProperties.distance = getValue(newMsg) * pulsesPerCm;
                 continue;
             // speed
-            case 'S':
+            case 'D':
                 newMsg++;
                 maxMotorSpeed = getValue(newMsg);
+                temp = pulsesPerRevolution * maxMotorSpeed * 0.01;
+                distancePidConf.params.max_integral = temp;
+                leftMotorPid.params.max_integral = temp;
+                rightMotorPid.params.max_integral = temp;
+                distancePidConf.params.min_integral = -temp;
+                leftMotorPid.params.min_integral = -temp;
+                rightMotorPid.params.min_integral = -temp;
+                distancePidConf.params.max_output = 10000 * maxMotorSpeed * 0.01;
+                leftMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
+                rightMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
                 continue;
-            // distanceUnit
-            case 'U':
+            // distance PID Kp
+            case 'E':
                 newMsg++;
-                temp = getValue(newMsg);
-                if(temp==0){
-                    distancePidConf.setPoint *= pulsesPerCm;
-                } else if(temp==1){
-                    distancePidConf.setPoint *= pulsesPerRevolution;
-                }
+                distancePidConf.params.kp = getValue(newMsg);
+                continue;
+            // distance PID Ki
+            case 'F':
+                newMsg++;
+                distancePidConf.params.ki = getValue(newMsg);
+                continue;
+            // distance PID Kd
+            case 'G':
+                newMsg++;
+                distancePidConf.params.kd = getValue(newMsg);
+                continue;
+            // left motor PID Kp
+            case 'H':
+                newMsg++;
+                leftMotorPid.params.kp = getValue(newMsg);
+                
+                continue;
+            // left motor PID Ki
+            case 'I':
+                newMsg++;
+                leftMotorPid.params.ki = getValue(newMsg);
+                continue;
+            // left motor PID Kd
+            case 'J':
+                newMsg++;
+                leftMotorPid.params.kd = getValue(newMsg);
+                continue;
+            // right motor PID Kp
+            case 'K':
+                newMsg++;
+                rightMotorPid.params.kp = getValue(newMsg);
+                continue;
+            // right motor PID Ki
+            case 'L':
+                newMsg++;
+                rightMotorPid.params.ki = getValue(newMsg);
+                continue;
+            // right motor PID Kd
+            case 'M':
+                newMsg++;
+                rightMotorPid.params.kd = getValue(newMsg);
+                continue;
+            // end measurement
+            case 'Q':
+                newMsg++;
+                stopMeasurement = true;
                 continue;
             default:
                 newMsg++;
         }
     }
-    if(!executingTask) startLoop();
+    
+    if(stopMeasurement){
+        stopLoop();
+    }else if(!executingTask){
+        startLoop();
+    }
 }
 
 // extract values from data
-int getValue(char* msg){
-    int val=0;
+float getValue(char* msg){
+    float val=0;
     bool negative = false;
-    while (isdigit(*msg) || *msg == '-'){
-        if(*msg != '-'){
-            val=(val*10)+(*msg-'0');
-        } else {
+    bool fraction = false;
+    while (isdigit(*msg) || *msg == '-' || *msg == '.'){
+        if(isdigit(*msg)){
+            if(!fraction){
+                val = (val*10)+(*msg-'0');
+            } else{
+                val += (*msg-'0')/10.0;
+            }
+        } else if(*msg == '-'){
             negative = true;
+        } else {
+            fraction = true;
         }
         msg++;
     }
