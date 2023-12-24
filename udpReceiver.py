@@ -40,18 +40,14 @@ while True:
                     index_c = message.find('C')
                     index_d = message.find('D')
                     index_e = message.find('E')
-                    index_f = message.find('F')
-                    index_g = message.find('G')
 
                     value_a = message[index_a + 1:index_b]
                     value_b = message[index_b + 1:index_c]
                     value_c = message[index_c + 1:index_d]
                     value_d = message[index_d + 1:index_e]
-                    value_e = message[index_e + 1:index_f]
-                    value_f = message[index_f + 1:index_g]
-                    value_g = message[index_g + 1:]
+                    value_e = message[index_e + 1:]
 
-                    csv_writer.writerow([value_a, value_b, value_c, value_d, value_e, value_f, value_g])
+                    csv_writer.writerow([value_a, value_b, value_c, value_d, value_e])
                     csvfile.flush()
 
         except Exception as e:
