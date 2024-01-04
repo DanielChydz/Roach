@@ -39,15 +39,15 @@ void processMessage(char* msg){
                 newMsg++;
                 maxMotorSpeed = getValue(newMsg);
                 temp = pulsesPerRevolution * maxMotorSpeed * 0.01;
-                distancePidConf.params.max_integral = temp;
-                leftMotorPid.params.max_integral = temp;
-                rightMotorPid.params.max_integral = temp;
-                distancePidConf.params.min_integral = -temp;
-                leftMotorPid.params.min_integral = -temp;
-                rightMotorPid.params.min_integral = -temp;
-                distancePidConf.params.max_output = 10000 * maxMotorSpeed * 0.01;
-                leftMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
-                rightMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
+                distancePidConf.params.max_integral = 200;
+                leftMotorPid.params.max_integral = 200;
+                rightMotorPid.params.max_integral = 200;
+                distancePidConf.params.min_integral = -200;
+                leftMotorPid.params.min_integral = -200;
+                rightMotorPid.params.min_integral = -200;
+                distancePidConf.params.max_output = distancePidConf.setPoint; // 10000 * maxMotorSpeed * 0.01
+                leftMotorPid.params.max_output = distancePidConf.setPoint;
+                rightMotorPid.params.max_output = distancePidConf.setPoint;
                 continue;
             // distance PID Kp
             case 'E':
