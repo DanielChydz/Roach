@@ -17,7 +17,6 @@ struct motorProperties{
     mcpwm_config_t mcpwmConfig;
     pid_ctrl_block_handle_t pidCtrl;
     int16_t loopPulses;
-    int32_t distance;
     int pulses;
     float motorSpeed;
     bool motorDir;

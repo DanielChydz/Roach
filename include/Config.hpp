@@ -28,7 +28,6 @@ struct pidConfig{
   int setPoint;
 };
 
-extern pidConfig distancePidConf;
 extern pidConfig leftMotorPid;
 extern pidConfig rightMotorPid;
 

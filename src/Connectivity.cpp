@@ -240,13 +240,13 @@ const char *udpPreparePayload(){
     if(!lastMeasure){
         // left motor pulses
         messageBufferString.append("A");
-        messageBufferString.append(to_string(leftMotorProperties.pulses));
+        messageBufferString.append(to_string(leftMotorProperties.loopPulses));
         // right motor pulses
         messageBufferString.append("B");
-        messageBufferString.append(to_string(rightMotorProperties.pulses));
+        messageBufferString.append(to_string(rightMotorProperties.loopPulses));
         // set point
         messageBufferString.append("C");
-        messageBufferString.append(to_string(distancePidConf.setPoint));
+        messageBufferString.append(to_string(rightMotorPid.setPoint));
         // left motor speed
         messageBufferString.append("D");
         messageBufferString.append(to_string(leftMotorProperties.motorSpeed));
