@@ -14,87 +14,64 @@ void processMessage(char* msg){
     while (*newMsg != 'Z')
     {
         switch(*newMsg){
-            // both wheels
+            // set point
             case 'A':
                 newMsg++;
-                distancePidConf.setPoint = getValue(newMsg) * pulsesPerCm;
-                continue;
-            // left wheel
-            case 'B':
-                newMsg++;
-                leftMotorProperties.distance = getValue(newMsg) * pulsesPerCm;
-                if(leftMotorProperties.distance > 0){
-                    leftMotorProperties.motorDir = 0;
-                } else if(leftMotorProperties.distance < 0){
-                    leftMotorProperties.motorDir = 1;
-                }
-                continue;
-            // right wheel
-            case 'C':
-                newMsg++;
-                rightMotorProperties.distance = getValue(newMsg) * pulsesPerCm;
-                continue;
-            // speed
-            case 'D':
-                newMsg++;
                 maxMotorSpeed = getValue(newMsg);
-                temp = pulsesPerRevolution * maxMotorSpeed * 0.01;
-                distancePidConf.params.max_integral = temp;
-                leftMotorPid.params.max_integral = temp;
-                rightMotorPid.params.max_integral = temp;
-                distancePidConf.params.min_integral = -temp;
-                leftMotorPid.params.min_integral = -temp;
-                rightMotorPid.params.min_integral = -temp;
-                distancePidConf.params.max_output = 10000 * maxMotorSpeed * 0.01;
-                leftMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
-                rightMotorPid.params.max_output = 10000 * maxMotorSpeed * 0.01;
-                continue;
-            // distance PID Kp
-            case 'E':
-                newMsg++;
-                distancePidConf.params.kp = getValue(newMsg);
-                continue;
-            // distance PID Ki
-            case 'F':
-                newMsg++;
-                distancePidConf.params.ki = getValue(newMsg);
-                continue;
-            // distance PID Kd
-            case 'G':
-                newMsg++;
-                distancePidConf.params.kd = getValue(newMsg);
                 continue;
             // left motor PID Kp
-            case 'H':
+            case 'B':
                 newMsg++;
                 leftMotorPid.params.kp = getValue(newMsg);
-                
                 continue;
             // left motor PID Ki
-            case 'I':
+            case 'C':
                 newMsg++;
                 leftMotorPid.params.ki = getValue(newMsg);
                 continue;
             // left motor PID Kd
-            case 'J':
+            case 'D':
                 newMsg++;
                 leftMotorPid.params.kd = getValue(newMsg);
                 continue;
             // right motor PID Kp
-            case 'K':
+            case 'E':
                 newMsg++;
                 rightMotorPid.params.kp = getValue(newMsg);
                 continue;
             // right motor PID Ki
-            case 'L':
+            case 'F':
                 newMsg++;
                 rightMotorPid.params.ki = getValue(newMsg);
                 continue;
             // right motor PID Kd
-            case 'M':
+            case 'G':
                 newMsg++;
                 rightMotorPid.params.kd = getValue(newMsg);
                 continue;
+            // sync PID Kp
+            case 'H':
+                newMsg++;
+                leftMotorSyncPid.params.kp = getValue(newMsg);
+                continue;
+            // sync PID Kd
+            case 'I':
+                newMsg++;
+                leftMotorSyncPid.params.ki = getValue(newMsg);
+                continue;
+            // sync PID Kd
+            case 'J':
+                newMsg++;
+                leftMotorSyncPid.params.kd = getValue(newMsg);
+                continue;
+            // set point
+            case 'K':
+                newMsg++;
+                rightMotorPid.setPoint = getValue(newMsg) * pulsesPerCm;
+                continue;
+            //
+            //
+            //
             // end measurement
             case 'Q':
                 newMsg++;
@@ -114,25 +91,8 @@ void processMessage(char* msg){
 
 // extract values from data
 float getValue(char* msg){
-    float val=0;
-    bool negative = false;
-    bool fraction = false;
-    while (isdigit(*msg) || *msg == '-' || *msg == '.'){
-        if(isdigit(*msg)){
-            if(!fraction){
-                val = (val*10)+(*msg-'0');
-            } else{
-                val += (*msg-'0')/10.0;
-            }
-        } else if(*msg == '-'){
-            negative = true;
-        } else {
-            fraction = true;
-        }
-        msg++;
-    }
-    if(negative) val *= -1;
-    return val;
+    char* endPtr;
+    return strtof(msg, &endPtr);
 }
 
 // check if data contains key word
