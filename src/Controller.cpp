@@ -11,7 +11,6 @@ bool executingTask = false;
 static int lastPulseCountLeftMotor = 0;
 static int lastPulseCountRightMotor = 0;
 static esp_timer_handle_t loopTimer = NULL;
-static pid_ctrl_block_handle_t pidHandle = NULL;
 
 static float integral_err = 0;
 static float previous_err1 = 0;
@@ -41,7 +40,6 @@ void stopLoop(){
   ESP_LOGI("PID", "Wynik petli =============================================");
   ESP_LOGI("PID", "Lewy silnik: %d", abs(leftMotorProperties.pulses));
   ESP_LOGI("PID", "Prawy silnik: %d", abs(rightMotorProperties.pulses));
-  ESP_LOGI("PID", "Srednia: %d", (abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2);
   ESP_LOGI("PID", "Cel: %d", abs(rightMotorPid.setPoint));
   lastMeasure = true;
   xTaskNotifyGive(udpClientConfig.taskHandle);
@@ -50,16 +48,11 @@ void stopLoop(){
   rightMotorProperties.pulses = 0;
   pcnt_unit_clear_count(leftMotorProperties.pcntUnit);
   pcnt_unit_clear_count(rightMotorProperties.pcntUnit);
-  pid_reset_ctrl_block(leftMotorProperties.pidCtrl);
-  pid_reset_ctrl_block(rightMotorProperties.pidCtrl);
 }
 
 void startLoop(){
   ESP_LOGI("PID", "Poczatek petli =============================================");
   ESP_LOGI("PID", "Cel: %d pulsow", rightMotorPid.setPoint);
-  pid_update_parameters(leftMotorProperties.pidCtrl, &leftMotorPid.params);
-  pid_update_parameters(rightMotorProperties.pidCtrl, &rightMotorPid.params);
-  pid_update_parameters(pidHandle, &leftMotorSyncPid.params);
   
   gpio_set_level(redLED, false);
   gpio_set_level(greenLED, false);
@@ -74,7 +67,7 @@ void startLoop(){
   esp_timer_start_periodic(loopTimer, rightMotorPid.loopPeriod * 1000);
 }
 
-static float pid_calc_positional(pidConfig *pid, float error)
+static float getPIDResult(pidConfig *pid, float error)
 {
   float output = 0;
   /* Add current error to the integral error */
@@ -100,7 +93,6 @@ static float pid_calc_positional(pidConfig *pid, float error)
 }
 
 static void motorLoop(void *args){
-  pid_ctrl_block_handle_t *pidCtrl = (pid_ctrl_block_handle_t *)args;
   pcnt_unit_get_count(leftMotorProperties.pcntUnit, &leftMotorProperties.pulses);
   pcnt_unit_get_count(rightMotorProperties.pcntUnit, &rightMotorProperties.pulses);
   leftMotorProperties.loopPulses = leftMotorProperties.pulses - lastPulseCountLeftMotor;
@@ -111,15 +103,13 @@ static void motorLoop(void *args){
   xTaskNotifyGive(udpClientConfig.taskHandle);
 
   float errorDistanceRight = rightMotorPid.setPoint - rightMotorProperties.pulses;
-  float motorPowerRight = pid_calc_positional(&rightMotorPid, errorDistanceRight);
+  float motorPowerRight = getPIDResult(&rightMotorPid, errorDistanceRight);
 
   float errorDistanceLeft = rightMotorPid.setPoint - (-leftMotorProperties.pulses);
-  float motorPowerLeft = pid_calc_positional(&leftMotorPid, errorDistanceLeft);
+  float motorPowerLeft = getPIDResult(&leftMotorPid, errorDistanceLeft);
   
   float errorSync = rightMotorProperties.pulses - (-leftMotorProperties.pulses);
-  float motorPowerSync = pid_calc_positional(&leftMotorSyncPid, errorSync);
-  ESP_LOGI("Petla", "errorSync: %f", errorSync);
-  ESP_LOGI("Petla", "motorPowerSync: %f", motorPowerSync);
+  float motorPowerSync = getPIDResult(&leftMotorSyncPid, errorSync);
 
   motorPowerLeft += motorPowerSync;
   motorPowerLeft = MIN(motorPowerLeft, pulsesPerPowerPercent * 100);
@@ -142,19 +132,8 @@ static void motorLoop(void *args){
     leftMotorProperties.motorDir = 1;
   }
 
-  // if((rightMotorPid.setPoint > 0 && errorDistance > 0) || (distancePidConf.setPoint < 0 && errorDistance < 0)){
-  //   //leftMotorProperties.motorDir = 0;
-  //   rightMotorProperties.motorDir = 1;
-  // } else if((distancePidConf.setPoint > 0 && errorDistance < 0) || (distancePidConf.setPoint < 0 && errorDistance > 0)){
-  //   //leftMotorProperties.motorDir = 1;
-  //   rightMotorProperties.motorDir = 0;
-  // }
-
   driveMotor(&rightMotorProperties);
   driveMotor(&leftMotorProperties);
-
-  //ESP_LOGI("Petla", "Blad: %d", rightMotorProperties.pulses - (-leftMotorProperties.pulses));
-  //ESP_LOGI("Petla", "integral: %f", integral_err);
 }
 
 void startMotorService() {
@@ -198,26 +177,10 @@ void motorServiceTask(void *args){
   ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, leftMotorProperties.pwmPin));
   ESP_ERROR_CHECK(mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0B, rightMotorProperties.pwmPin));
 
-  // motor PID
-  pid_ctrl_config_t pidConf = {
-      .init_param = leftMotorPid.params,
-  };
-  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &leftMotorProperties.pidCtrl));
-  
-  pidConf = {
-      .init_param = rightMotorPid.params,
-  };
-  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &rightMotorProperties.pidCtrl));
-
-  pidConf = {
-      .init_param = leftMotorSyncPid.params,
-  };
-  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &pidHandle));
-
   // motor loop
   const esp_timer_create_args_t loopTimerArgs = {
       .callback = motorLoop,
-      .arg = &rightMotorProperties.pidCtrl,
+      .arg = NULL,
       .name = "motorLoop"
   };
   ESP_ERROR_CHECK(esp_timer_create(&loopTimerArgs, &loopTimer));

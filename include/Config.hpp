@@ -1,6 +1,7 @@
 #ifndef ROACH_CONFIG_H
 #define ROACH_CONFIG_H
 #include "Controller.hpp"
+#include "../components/pid_ctrl/include/pid_ctrl.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <driver/gpio.h>
