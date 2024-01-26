@@ -29,6 +29,7 @@ struct pidConfig{
 };
 
 extern pidConfig leftMotorPid;
+extern pidConfig leftMotorSyncPid;
 extern pidConfig rightMotorPid;
 
 extern connectivityConfig connData;
@@ -46,6 +47,7 @@ extern const uint16_t pcntHighLimit;
 extern const int16_t pcntLowLimit;
 extern const gpio_num_t standbyPin;
 extern const uint16_t pulsesPerPowerPercent;
+extern const uint16_t maxPulsesPerPowerPercent;
 extern int maxMotorSpeed;
 extern const uint8_t outputErrorTolerance;
 

@@ -238,21 +238,33 @@ const char *udpPreparePayload(){
 
     messageBufferString.append("DC_Remote_Car_Key");
     if(!lastMeasure){
-        // left motor pulses
-        messageBufferString.append("A");
-        messageBufferString.append(to_string(leftMotorProperties.loopPulses));
-        // right motor pulses
-        messageBufferString.append("B");
-        messageBufferString.append(to_string(rightMotorProperties.loopPulses));
         // set point
-        messageBufferString.append("C");
+        messageBufferString.append("A");
         messageBufferString.append(to_string(rightMotorPid.setPoint));
-        // left motor speed
+        // left motor loop pulses
+        messageBufferString.append("B");
+        messageBufferString.append(to_string(leftMotorProperties.loopPulses));
+        // right motor loop pulses
+        messageBufferString.append("C");
+        messageBufferString.append(to_string(rightMotorProperties.loopPulses));
+        // left motor pulses
         messageBufferString.append("D");
-        messageBufferString.append(to_string(leftMotorProperties.motorSpeed));
-        // right motor speed
+        messageBufferString.append(to_string(leftMotorProperties.pulses));
+        // right motor pulses
         messageBufferString.append("E");
-        messageBufferString.append(to_string(rightMotorProperties.motorSpeed));
+        messageBufferString.append(to_string(rightMotorProperties.pulses));
+        // left motor speed
+        messageBufferString.append("F");
+        messageBufferString.append(to_string(leftMotorProperties.motorSpeed / (pulsesPerPowerPercent * 100.0 / maxPulsesPerPowerPercent)));
+        // right motor speed
+        messageBufferString.append("G");
+        messageBufferString.append(to_string(rightMotorProperties.motorSpeed / (pulsesPerPowerPercent * 100.0 / maxPulsesPerPowerPercent)));
+        // max motor speed
+        messageBufferString.append("H");
+        messageBufferString.append(to_string(maxMotorSpeed));
+        // max impulses per loop
+        messageBufferString.append("I");
+        messageBufferString.append(to_string(pulsesPerPowerPercent * 100));
     } else {
         messageBufferString.append("Z");
     }

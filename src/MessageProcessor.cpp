@@ -17,7 +17,7 @@ void processMessage(char* msg){
             // set point
             case 'A':
                 newMsg++;
-                rightMotorPid.setPoint = getValue(newMsg) * pulsesPerPowerPercent;
+                maxMotorSpeed = getValue(newMsg);
                 continue;
             // left motor PID Kp
             case 'B':
@@ -49,6 +49,29 @@ void processMessage(char* msg){
                 newMsg++;
                 rightMotorPid.params.kd = getValue(newMsg);
                 continue;
+            // sync PID Kp
+            case 'H':
+                newMsg++;
+                leftMotorSyncPid.params.kp = getValue(newMsg);
+                continue;
+            // sync PID Kd
+            case 'I':
+                newMsg++;
+                leftMotorSyncPid.params.ki = getValue(newMsg);
+                continue;
+            // sync PID Kd
+            case 'J':
+                newMsg++;
+                leftMotorSyncPid.params.kd = getValue(newMsg);
+                continue;
+            // set point
+            case 'K':
+                newMsg++;
+                rightMotorPid.setPoint = getValue(newMsg) * pulsesPerCm;
+                continue;
+            //
+            //
+            //
             // end measurement
             case 'Q':
                 newMsg++;
@@ -68,25 +91,8 @@ void processMessage(char* msg){
 
 // extract values from data
 float getValue(char* msg){
-    float val=0;
-    bool negative = false;
-    bool fraction = false;
-    while (isdigit(*msg) || *msg == '-' || *msg == '.'){
-        if(isdigit(*msg)){
-            if(!fraction){
-                val = (val*10)+(*msg-'0');
-            } else{
-                val += (*msg-'0')/10.0;
-            }
-        } else if(*msg == '-'){
-            negative = true;
-        } else {
-            fraction = true;
-        }
-        msg++;
-    }
-    if(negative) val *= -1;
-    return val;
+    char* endPtr;
+    return strtof(msg, &endPtr);
 }
 
 // check if data contains key word

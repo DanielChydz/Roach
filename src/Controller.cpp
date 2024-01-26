@@ -23,6 +23,7 @@ void configureMotor(motorProperties *args);
 void stopLoop(){
   executingTask = false;
   esp_timer_stop(loopTimer);
+  vTaskDelay(pdMS_TO_TICKS(50));
 
   if(connected){
     gpio_set_level(redLED, false);
@@ -58,7 +59,7 @@ void startLoop(){
   ESP_LOGI("PID", "Cel: %d pulsow", rightMotorPid.setPoint);
   pid_update_parameters(leftMotorProperties.pidCtrl, &leftMotorPid.params);
   pid_update_parameters(rightMotorProperties.pidCtrl, &rightMotorPid.params);
-  pid_update_parameters(pidHandle, &rightMotorPid.params);
+  pid_update_parameters(pidHandle, &leftMotorSyncPid.params);
   
   gpio_set_level(redLED, false);
   gpio_set_level(greenLED, false);
@@ -75,32 +76,31 @@ void startLoop(){
 
 static float pid_calc_positional(pidConfig *pid, float error)
 {
-    float output = 0;
-    /* Add current error to the integral error */
-    integral_err += error;
-    /* If the integral error is out of the range, it will be limited */
-    integral_err = MIN(integral_err, pid->params.max_integral);
-    integral_err = MAX(integral_err, pid->params.min_integral);
+  float output = 0;
+  /* Add current error to the integral error */
+  integral_err += error;
+  /* If the integral error is out of the range, it will be limited */
+  integral_err = MIN(integral_err, pid->params.max_integral);
+  integral_err = MAX(integral_err, pid->params.min_integral);
 
-    /* Calculate the pid control value by location formula */
-    /* u(k) = e(k)*Kp + (e(k)-e(k-1))*Kd + integral*Ki */
-    output = error * pid->params.kp +
-             (error - previous_err1) * pid->params.kd +
-             integral_err * pid->params.ki;
+  /* Calculate the pid control value by location formula */
+  /* u(k) = e(k)*Kp + (e(k)-e(k-1))*Kd + integral*Ki */
+  output = error * pid->params.kp +
+            (error - previous_err1) * pid->params.kd +
+            integral_err * pid->params.ki;
 
-    /* If the output is out of the range, it will be limited */
-    output = MIN(output, pid->params.max_output);
-    output = MAX(output, pid->params.min_output);
+  /* If the output is out of the range, it will be limited */
+  output = MIN(output, pid->params.max_output);
+  output = MAX(output, pid->params.min_output);
 
-    /* Update previous error */
-    previous_err1 = error;
+  /* Update previous error */
+  previous_err1 = error;
 
-    return output;
+  return output;
 }
 
 static void motorLoop(void *args){
   pid_ctrl_block_handle_t *pidCtrl = (pid_ctrl_block_handle_t *)args;
-  int mean = (abs(leftMotorProperties.pulses) + abs(rightMotorProperties.pulses))/2;
   pcnt_unit_get_count(leftMotorProperties.pcntUnit, &leftMotorProperties.pulses);
   pcnt_unit_get_count(rightMotorProperties.pcntUnit, &rightMotorProperties.pulses);
   leftMotorProperties.loopPulses = leftMotorProperties.pulses - lastPulseCountLeftMotor;
@@ -110,23 +110,39 @@ static void motorLoop(void *args){
 
   xTaskNotifyGive(udpClientConfig.taskHandle);
 
-  float errorDistanceRight = rightMotorPid.setPoint - rightMotorProperties.loopPulses;
-  float motorPowerRight = 0;
-  //motorPower = pid_calc_positional(&distancePidConf, errorDistance);
-  pid_compute(*pidCtrl, errorDistanceRight, &motorPowerRight);
+  float errorDistanceRight = rightMotorPid.setPoint - rightMotorProperties.pulses;
+  float motorPowerRight = pid_calc_positional(&rightMotorPid, errorDistanceRight);
 
-  float errorDistanceLeft = rightMotorProperties.loopPulses - (-leftMotorProperties.loopPulses);
-  float motorPowerLeft = 0;
-  //motorPower = pid_calc_positional(&distancePidConf, errorDistance);
-  pid_compute(leftMotorProperties.pidCtrl, errorDistanceLeft, &motorPowerLeft);
+  float errorDistanceLeft = rightMotorPid.setPoint - (-leftMotorProperties.pulses);
+  float motorPowerLeft = pid_calc_positional(&leftMotorPid, errorDistanceLeft);
+  
+  float errorSync = rightMotorProperties.pulses - (-leftMotorProperties.pulses);
+  float motorPowerSync = pid_calc_positional(&leftMotorSyncPid, errorSync);
+  ESP_LOGI("Petla", "errorSync: %f", errorSync);
+  ESP_LOGI("Petla", "motorPowerSync: %f", motorPowerSync);
 
-  motorPowerLeft /= (pulsesPerPowerPercent * 1.25);
-  motorPowerRight /= pulsesPerPowerPercent;
+  motorPowerLeft += motorPowerSync;
+  motorPowerLeft = MIN(motorPowerLeft, pulsesPerPowerPercent * 100);
 
-  rightMotorProperties.motorSpeed = motorPowerRight;
-  leftMotorProperties.motorSpeed = motorPowerLeft;
+  motorPowerRight = motorPowerRight * (pulsesPerPowerPercent * 100.0 / maxPulsesPerPowerPercent) / pulsesPerPowerPercent;
+  motorPowerLeft = motorPowerLeft * (pulsesPerPowerPercent * 100.0 / maxPulsesPerPowerPercent) / pulsesPerPowerPercent;
 
-  // if((distancePidConf.setPoint > 0 && errorDistance > 0) || (distancePidConf.setPoint < 0 && errorDistance < 0)){
+  rightMotorProperties.motorSpeed = motorPowerRight * 0.01 * maxMotorSpeed * 0.9;
+  leftMotorProperties.motorSpeed = motorPowerLeft * 0.01 * maxMotorSpeed; //* (pulsesPerPowerPercent * 100 / 600);
+
+  if(errorDistanceRight >= 0){
+    rightMotorProperties.motorDir = 1;
+  } else {
+    rightMotorProperties.motorDir = 0;
+  }
+
+  if(errorDistanceLeft >= 0){
+    leftMotorProperties.motorDir = 0;
+  } else {
+    leftMotorProperties.motorDir = 1;
+  }
+
+  // if((rightMotorPid.setPoint > 0 && errorDistance > 0) || (distancePidConf.setPoint < 0 && errorDistance < 0)){
   //   //leftMotorProperties.motorDir = 0;
   //   rightMotorProperties.motorDir = 1;
   // } else if((distancePidConf.setPoint > 0 && errorDistance < 0) || (distancePidConf.setPoint < 0 && errorDistance > 0)){
@@ -137,15 +153,8 @@ static void motorLoop(void *args){
   driveMotor(&rightMotorProperties);
   driveMotor(&leftMotorProperties);
 
-  ESP_LOGI("PID", "Pulsy lewy: %d", leftMotorProperties.loopPulses);
-  ESP_LOGI("PID", "Pulsy prawy: %d", rightMotorProperties.loopPulses);
-  // ESP_LOGI("PID", "motorPower: %f", motorPower);
-  //ESP_LOGI("PID", "Pulsy: %d na %d", rightMotorProperties.loopPulses, rightMotorPid.setPoint);
-  ESP_LOGI("PID", "integral: %f", integral_err);
-  //ESP_LOGI("PID", "Lewy silnik: %f", leftMotorProperties.motorSpeed);
-  //ESP_LOGI("PID", "Prawy silnik: %f%%", rightMotorProperties.motorSpeed);
-  //ESP_LOGI("PID", "Lewy silnik: %d na %d", abs(leftMotorProperties.pulses), abs(distancePidConf.setPoint));
-  //ESP_LOGI("PID", "Prawy silnik: %d na %d", abs(rightMotorProperties.pulses), abs(distancePidConf.setPoint));
+  //ESP_LOGI("Petla", "Blad: %d", rightMotorProperties.pulses - (-leftMotorProperties.pulses));
+  //ESP_LOGI("Petla", "integral: %f", integral_err);
 }
 
 void startMotorService() {
@@ -199,6 +208,11 @@ void motorServiceTask(void *args){
       .init_param = rightMotorPid.params,
   };
   ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &rightMotorProperties.pidCtrl));
+
+  pidConf = {
+      .init_param = leftMotorSyncPid.params,
+  };
+  ESP_ERROR_CHECK(pid_new_control_block(&pidConf, &pidHandle));
 
   // motor loop
   const esp_timer_create_args_t loopTimerArgs = {
