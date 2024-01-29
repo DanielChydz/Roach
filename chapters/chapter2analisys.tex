@@ -1,3 +1,5 @@
+Najistotniejszą składową projektu jest synchronizacja prędkości silników pojazdu. Dlatego analizując poruszaną tematykę, zdecydowano się na pominięcie szczegółowych opisów technologii pobocznych, takich jak druk 3D (ang.~\english{3 dimensions}). W~bieżącym rozdziale opisano przeprowadzono rozważania jedynie na temat technologii pomiaru położenia wałów silników, oraz metod wyznaczania sygnałów sterujących.
+
 \section{Detekcja położenia wału silnika}
 \label{ch:analizaenkodery}
 
@@ -33,8 +35,8 @@ Najważniejszy jest podział ze względu na rodzaj sygnału wyjściowego. Mimo, 
 Enkodery inkrementalne u~podstaw działają~w ten sam sposób, tzn. opierają się na dyskach kodujących, z~tą różnicą, że nie są w~stanie podać dokładnej wartości położenia. Zamiast tego, podają na wyjściu odpowiedni impuls przy obrocie w~danym kierunku. Następnie w~oprogramowaniu impulsy te są zliczane w celu oszacowania aktualnej pozycji względem pozycji startowej. Ze względu na wyzerowanie liczby impulsów przy utracie zasilania, ten typ enkodera nie jest w~stanie podać dokładnej pozycji w~przypadku utraty zasilania.
 
 Istotny jest również podział enkoderów ze względu na wykorzystywane zjawisko fizyczne. Dwa główne typy to enkodery optyczne oraz magnetyczne. Oba rodzaje występują zarówno w~wariancie pojedynczym (Rysunek~\ref{fig:encoderDiscIncrementalSingle}) jak i~podwójnym (Rysunek~\ref{fig:encoderDiscIncrementalDual}). W~przypadku enkoderów optycznych, kolorowi białemu odpowiada szczelina, zaś kolorowi czarnemu blokada. W~przypadku enkoderów magnetycznych, kolorom odopowiadają bieguny~S~i~N.
-
-\begin{figure}
+\vspace*{-0.9cm}
+\begin{figure}[!h]
     \centering
     \subfloat[Enkoder pojedynczy]{
       \includegraphics[width=5cm]{images/encoderDiscIncrementalSingle.eps}
@@ -50,7 +52,7 @@ Istotny jest również podział enkoderów ze względu na wykorzystywane zjawisk
 Jako że w~projekcie wykorzystane zostały enkodery magnetyczne, zasada ich działania została opisana, zaś enkodery optyczne pominięto. W enkoderze magnetycznym umieszcza się magnesy na obracającej się lub przemieszczającej się części obiektu~---~czyli dysku~---~a~czujniki magnetyczne~---~najczęściej czujniki Halla (Definicja~\ref{def:czujnikhalla})~---~znajdujące się na stałej części enkodera rejestrują zmiany pola magnetycznego (Rysunek~\ref{fig:obrazekenkoderamagnetycznego}). 
 
 \begin{center}
-  \includegraphics[scale=0.08]{images/magneticEncoder.png}
+  \includegraphics[scale=0.07]{images/magneticEncoder.png}
   \captionof{figure}{Zobrazowanie zasady działania enkodera magnetycznego dla tarczy z jednym rzędem (Źródło:~\cite{bib:obrazekenkoderamagnetycznego})}
   \label{fig:obrazekenkoderamagnetycznego}
 \end{center}
@@ -85,14 +87,16 @@ Na przestrzeni kolejnych tysięcy lat w~technologii regulatorów nie dokonał si
 
 Jego popularyzacja nastąpiła w~latach~'50~XX~wieku, gdy układy elektroniczne stały się tańsze, dotępniejsze i~bardziej niezawodne. Dziś jest powszechnie stosowany~w automatyce, robotyce, elektronice i~wielu innych dziedzinach inżynierii. Regulator PID jest stosowany najczęściej ze względu na prostotę, bardzo niski koszt implementacji i~wystarczające działanie w~większości przypadków.
 
-Drugim najczęściej stosowanym regulatorem jest regulator predykcyjny MPC (ang.~\english{Model Predictive Control}). W~przeciwieństwie do tradycyjnych regulatorów które reagują na sprzężenie zwrotne z~wyjścia układu, regulator predykcyjny działa z~wyprzedzeniem, zanim zdąży nastąpić zmiana na wyjściu układu. 
+Drugim często stosowanym regulatorem jest regulator predykcyjny MPC (ang.~\english{Model Predictive Control}). W~przeciwieństwie do tradycyjnych regulatorów które reagują na sprzężenie zwrotne z~wyjścia układu, regulator predykcyjny działa z~wyprzedzeniem, zanim zdąży nastąpić zmiana na wyjściu układu. 
 
 Pierwsze wzmianki o~tym typie kontroli datowane są na wczesne lata '60~XX~wieku i~rozważania Rudolfa~E.~Kálmána na temat systemów liniowych. Od tego czasu, technologia regulatora predykcyjnego była rozwijana niezależnie przez wiele osób i~instytucji. W późnych latach '70~XX~wieku regulator ten można było już spotkać w ~zastosowaniach przemysłowych. W~roku 1979 zaprezentowano generację pierwszą, zaś najnowszą, 4~generację stanowią w~roku 1998\cite{bib:regulatormpc}. Pełna genealogia algorytmów MPC przedstawiona została na Rysunku~\ref{fig:regulatormpc}.
 
 \begin{center}
-  \includegraphics[scale=1]{images/drzewompc.png}
+  \includegraphics[scale=0.8]{images/drzewompc.png}
   \captionof{figure}{Genealogia algorytmów MPC (Źródło:~\cite{bib:regulatormpc})}
   \label{fig:regulatormpc}
 \end{center}
 
 Regulatory predykcyjne znajdują zastosowanie w~układach o~dużym opóźnieniu i~wysokim rzędzie, gdzie regulatory PID są niewystarczające. Przykładem są sondy kosmiczne.
+
+Ostatnim wymienionym sposobem sterowania jest sterowanie ślizgowe, znane również jako zmiennostrukturalne. Polega na zastosowaniu nieciągłego sygnału sterującego poprzez szybkie przełączanie sterowania, kiedy stan systemu osiąga tzw.~powierzchnię ślizgową. Charakteryzuje się efektywnością zwłaszcza w warunkach niepewności i~zmiennych warunków operacyjnych, a~także radzi sobie z~nieliniowościami i~zapewnia szybką odpowiedź\cite{bib:slideuncertanity}. Wadami jest zjawisko drgań (ang.~\english{chattering}) co negatywnie wpływa na elementy wykonawcze, oraz wysoki stopień skomplikowania wymagający dogłębnej analizy projektowanego systemu, co może stać w~sprzeczności z~założeniami projektowymi --- jak w~przypadku niniejszego projektu. Metoda została wynaleziona w~latach '70~XX~wieku przez rosyjskiego uczonego Vadima~I.~Utkina\cite{bib:slideinvention}.
