@@ -2,45 +2,45 @@ clc
 clear all
 close all
 
-% Read the CSV file using readtable
-dataTable = readtable('roachPythonScript/Roach/Data.csv');
+% Inicjalizacja zmiennych
+filePrefix = 'Data_';  % Prefiks nazwy pliku
+fileExtension = '.csv';  % Rozszerzenie pliku
+startRow = 5;  % Numer pierwszego wiersza do odczytu
+endRow = 24;  % Numer ostatniego wiersza do odczytu
+averageRows = 10:24;  % Zakres wierszy do obliczenia średniej
 
-% Extract columns
-leftMotorPulses = abs(dataTable.Var1);
-rightMotorPulses = abs(dataTable.Var2);
-setPoint = abs(dataTable.Var3);
-leftMotorSpeed = abs(dataTable.Var4);
-rightMotorSpeed = abs(dataTable.Var5);
+% Inicjalizacja wektora numerów plików
+fileNumbers = 0:5:100;
 
-% Create a time vector
-timeVector = (0:(height(dataTable)-1)) * 0.05; % Assuming each row is 50ms apart
+% Inicjalizacja wektorów do przechowywania średnich wartości
+averageColumn1 = zeros(size(fileNumbers));
+averageColumn2 = zeros(size(fileNumbers));
 
-% Plot the data
+% Obliczenie średnich wartości dla każdego pliku
+for idx = 1:length(fileNumbers)
+    x = fileNumbers(idx);
+    
+    % Generowanie nazwy pliku
+    fileName = [filePrefix, num2str(x), fileExtension];
+    
+    % Odczyt danych z pliku
+    data = abs(readmatrix(fileName));
+    
+    % Obliczanie średnich wartości dla kolumny 1 i 2
+    averageColumn1(idx) = mean(data(averageRows, 1));
+    averageColumn2(idx) = mean(data(averageRows, 2));
+end
+
+% Tworzenie wykresu dla kolumny 1
 figure('WindowState','maximized');
-subplot(2, 1, 1)
-grid on
-plot(timeVector, leftMotorPulses, 'LineWidth', 1);
-hold on;
-plot(timeVector, rightMotorPulses, 'LineWidth', 1);
-yline(setPoint, ':', 'Wartość zadana')
+plot(fileNumbers, averageColumn1, 'o-', 'LineWidth', 2);
+ylabel('Pulsy lewego silnika na pętlę, -');
+xlabel('Prędkość, %');
+grid minor;
 
-% Add labels and title
-ylim([0 max([max(leftMotorPulses), max(rightMotorPulses), max(setPoint)]) + 2000]);
-xlabel('Czas, s')
-ylabel('Liczba impulsów enkodera, -')
-title('Położenie silników')
-legend({'Położenie lewego silnika', 'Położenie prawego silnika'}, 'Location', 'southeast')
-
-
-subplot(2, 1, 2)
-grid on
-plot(timeVector, leftMotorSpeed);
-hold on
-plot(timeVector, rightMotorSpeed);
-
-% Add labels and title
-ylim([0 max([max(leftMotorSpeed), max(rightMotorSpeed)])+10]);
-xlabel('Czas, s')
-ylabel('Prędkość silników, %')
-title('Prędkość silników')
-legend({'Prędkość lewego silnika', 'Prędkość prawego silnika'}, 'Location', 'northeast')
+% Tworzenie wykresu dla kolumny 2
+figure('WindowState','maximized');
+plot(fileNumbers, averageColumn2, 'o-', 'LineWidth', 2);
+ylabel('Pulsy prawego silnika na pętlę, -');
+xlabel('Prędkość, %');
+grid minor;
