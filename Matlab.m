@@ -31,16 +31,17 @@ for idx = 1:length(fileNumbers)
     averageColumn2(idx) = mean(data(averageRows, 2));
 end
 
-% Tworzenie wykresu dla kolumny 1
-figure('WindowState','maximized');
-plot(fileNumbers, averageColumn1, 'o-', 'LineWidth', 2);
-ylabel('Pulsy lewego silnika na pętlę, -');
-xlabel('Prędkość, %');
-grid minor;
+pulsesPerCm = 2800 / (2 * pi * 1.5);
+averageColumn1 = averageColumn1 / pulsesPerCm * 20 * 60 * 60 / 100 / 1000;
+averageColumn2 = averageColumn2 / pulsesPerCm * 20 * 60 * 60 / 100 / 1000;
 
-% Tworzenie wykresu dla kolumny 2
+% tworzenie wykresu
 figure('WindowState','maximized');
-plot(fileNumbers, averageColumn2, 'o-', 'LineWidth', 2);
-ylabel('Pulsy prawego silnika na pętlę, -');
-xlabel('Prędkość, %');
+hold on;
+plot(fileNumbers, averageColumn1, 'o-', 'LineWidth', 2);
+plot(fileNumbers, averageColumn2, 's-', 'LineWidth', 2);
+hold off;
+legend('Prędkość lewego koła, km/h', 'Prędkość prawego koła, km/h', 'Location', 'best');
+ylabel('Prędkość rzeczywista, km/h');
+xlabel('Prędkość zadana, %');
 grid minor;

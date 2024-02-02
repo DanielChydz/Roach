@@ -8,8 +8,8 @@ UDP_PORT = 4322
 
 while True:
     print("Rozpoczynanie pomiaru.")
-    # csv_filename = 'Data_' + time.strftime("%Y%m%d-%H%M%S") + '.csv'
-    csv_filename = 'Data.csv'
+    csv_filename = 'Data_' + time.strftime("%Y%m%d-%H%M%S") + '.csv'
+    # csv_filename = 'Data.csv'
     
     f = open(csv_filename, "w")
     f.truncate()
