@@ -9,21 +9,34 @@
 
 % biblioteka listings
 \usepackage{listings}
-\lstset{%
-morekeywords={string,exception,std,vector},% słowa kluczowe rozpoznawane przez pakiet listings
-language=C++,% C, Matlab, Python, SQL, TeX, XML, bash, ... – vide https://www.ctan.org/pkg/listings
-commentstyle=\textit,%
-identifierstyle=\textsf,%
-keywordstyle=\sffamily\bfseries, %\texttt, %
-%captionpos=b,%
-tabsize=3,%
-frame=lines,%
-numbers=left,%
-numberstyle=\tiny,%
-numbersep=5pt,%
-breaklines=true,%
-escapeinside={@*}{*@},%
+\usepackage{xcolor}
+\lstset{
+    language=C++,                 % język programowania
+    backgroundcolor=\color{white}, % kolor tła
+    commentstyle=\color{green},    % styl komentarzy
+    keywordstyle=\color{blue},     % styl słów kluczowych
+    numberstyle=\small\color{gray}, % styl numeracji linii
+    stringstyle=\color{purple},    % styl stringów
+    basicstyle=\ttfamily\small,    % podstawowy styl czcionki
+    breakatwhitespace=false,       % łamanie linii (false = łamie w dowolnym miejscu)
+    breaklines=true,               % automatyczne łamanie linii
+    captionpos=b,                  % pozycja tytułu (t=top, b=bottom)
+    keepspaces=true,               % zachowuje spacje w kodzie (potrzebne do zachowania wcięć)
+    numbers=left,                  % gdzie umieścić numerację linii
+    numbersep=5pt,                 % jak daleko numeracja linii jest od kodu
+    showspaces=false,              % pokazuje spacje za pomocą podkreśleń; przesłania 'showstringspaces'
+    showstringspaces=false,        % nie pokazuje spacji w stringach
+    showtabs=false,                % pokazuje tabulacje za pomocą podkreśleń
+    tabsize=2,                     % ustawia domyślny rozmiar tabulatora
+    frame=single,                  % dodaje ramkę do kodu
+    rulecolor=\color{black},       % kolor ramki
+    title=\lstname,                % pokazuje nazwę pliku pod kodem
+    captionpos=t,                  % tytuł nad kodem
+    escapeinside={\%*}{*)},        % jeśli chcesz dodać LaTeXa do swojego kodu
+    morekeywords={*,...},          % jeśli chcesz dodać więcej słów kluczowych do zestawu
 }
+\renewcommand\lstlistingname{Źródło}
+\renewcommand\lstlistlistingname{Źródła}
 
 \usepackage{enumerate}
 \usepackage{enumitem}
