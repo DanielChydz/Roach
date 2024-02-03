@@ -50,7 +50,6 @@ const gpio_num_t standbyPin = GPIO_NUM_14;
 const uint16_t pulsesPerPowerPercent = 4; // per loop
 const uint16_t maxPulsesPerPowerPercent = 571; // per loop
 int maxMotorSpeed = 100;
-const uint8_t outputErrorTolerance = 200; // % of standard deviation, any number in range of uint8_t available to use
 
 // PID config
 pidConfig leftMotorPid = {

@@ -113,7 +113,7 @@ static void motorLoop(void *args){
   motorPowerLeft = motorPowerLeft * (pulsesPerPowerPercent * 100.0 / maxPulsesPerPowerPercent) / pulsesPerPowerPercent;
 
   rightMotorProperties.motorSpeed = motorPowerRight * 0.01 * maxMotorSpeed * 0.9;
-  leftMotorProperties.motorSpeed = motorPowerLeft * 0.01 * maxMotorSpeed; //* (pulsesPerPowerPercent * 100 / 600);
+  leftMotorProperties.motorSpeed = motorPowerLeft * 0.01 * maxMotorSpeed;
 
   if(errorDistanceRight >= 0){
     rightMotorProperties.motorDir = 1;

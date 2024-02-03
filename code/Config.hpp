@@ -50,7 +50,6 @@ extern const gpio_num_t standbyPin;
 extern const uint16_t pulsesPerPowerPercent;
 extern const uint16_t maxPulsesPerPowerPercent;
 extern int maxMotorSpeed;
-extern const uint8_t outputErrorTolerance;
 
 // LEDs pins
 extern const gpio_num_t redLED;
