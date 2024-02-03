@@ -1,3 +1,14 @@
-Założenie początkowe dotyczące różnych rozmiarów kół - niespełnione.
-Poprawić silnik na koło.
-Nie zapomnij zmienić sekcji o matlabie (zwięszyła się ilość skryptów).
+\label{ch:results}
+Nie wszystkie założenia początkowe zostały spełnione. Główne zmiany dotyczą fizycznego wykonania pojazdu. Zrezygnowano z~osi przedniej i~4~kół na rzecz koła podporowego. Usunięto także czujnik laserowy i~głośnik sygnalizacyjny. Rama pojazdu, wbrew założeniu, nie przypomina do końca pojazdu osobowego, co spowodowane jest niskimi umiejętnościami modelowania 3D autora. Pojazd zgodnie z wymogami jest modułowy, ale ostatecznie modułowość ta nie została wykorzystana, i~pomiary przeprowadzono tylko dla jednego rozmiaru koła o średnicy 30~mm, mimo że nawet kod ESP32 wspiera zmianę średnicy koła.
+
+Realizacja projektu, mimo zmian konstrukcyjnych, pokazuje istotne aspekty praktycznego zastosowania teorii sterowania w~rzeczywistych warunkach. Ostateczna forma pojazdu, chociaż odbiega od pierwotnych założeń, podkreśla elastyczność procesu projektowego w~adaptacji do ograniczeń technicznych i~umiejętności wykonawczych. Skupienie się na modułowości, nawet jeśli nie zostało pełni wykorzystane, stanowi solidną bazę dla przyszłych modyfikacji i~ulepszeń. Takie podejście pozwala na łatwe dostosowanie projektu do nowych wymagań lub eksperymentów bez konieczności projektowania urządzenia od podstaw.
+
+Poza wymienionymi, wszystkie założenia projektowe zostały spełnione, a~sam projekt został pomyślnie ukończony z~pozytywnymi wynikami. Dla wybranych parametrów PID (Tabela \ref{tab:finalneparametrypid}), pojazd z~wysoką dokładnością w~granicach 1.5~cm dojeżdża do zadanej odległości, zachowując jednocześnie synchronizację pozycji silników, a~tym samym przejechanego dystansu kół. Średni uchyb między kołami w~stanie ustalonym wynosi 0.35~cm, co w praktyce jest prawie niezauważalne podczas przejazdu.
+
+Jako że dla wszystkich regulatorów PID wzmocnienie różniczkujące jest zerowe, można mówić raczej o~sterowaniu przy pomocy regulatorów PI, ponieważ mimo że technicznie część różniczkująca została zaimplementowana, to nie zaistniała potrzeba jej użycia podczas doboru nastaw.
+
+Wadą są oscylacje prędkości zadanej silnika śledzącego ze względu na wysokie wzmocnienie członu całkującego równe K\textsubscript{I}=3, jednak nie przekłada się to na oscylacje rzeczywistego układu. Wraz ze zmniejszeniem tego wzmocnienia, co prawda zanikają oscylacje, jednak zwiększa się uchyb między pozycją koła prowadzącego a~śledzącego.
+
+Sam model prowadzący-śledzący posiada zasadniczą wadę niewidoczną w~warunkach doświadczalnych, mianowicie w~przypadku gdy silnik śledzący z~jakiegoś powodu przestanie nadążać, silnik prowadzący nie będzie dążył do wyrównania prędkości i~pozycji, tym samym drastycznie zwiększając uchyb. Jedną z metod korekcji~byłoby dodanie sygnału niezależnego do koła prowadzącego, tym samym dodając czwarty regulator PI.
+
+Podsumowując, projekt ten dostarcza cennych wniosków o~praktycznym zastosowaniu teorii sterowania w~realnych aplikacjach inżynierskich. Eksperymentalna natura projektu, pomimo pewnych ograniczeń, demonstruje możliwości adaptacji i~innowacji w dziedzinie robotyki i~automatyzacji, oraz umiejętności młodych automatyków-robotyków.
