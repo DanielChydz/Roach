@@ -1,0 +1,74 @@
+clc
+clear all
+close all
+% DO ZROBIENIA: CAŁE SP <-------------------------------------------------
+%% parametry
+pulsesPerCm = 2800 / (2 * pi * 1.5);
+kp = [0.00, 0.006, 0.01];
+ki = [0, 0, 0];
+kd = [0, 0, 0];
+textFontSize = 16;
+axisFontSize = 24;
+
+%% odczyt danych
+
+files = dir(fullfile('PID\SP', '*.csv'));
+maxRows = 0;
+% znalezienie pliku o największej liczbie rzędów (do inicjalizacji)
+for i=1:height(files)
+    path = fullfile(files(i).folder, files(i).name);
+    temp = readmatrix(path);
+    rows = size(temp, 1);
+    if rows > maxRows
+        maxRows = rows;
+    end
+end
+
+measurementsData = zeros(maxRows, 9, height(files));
+% odczytanie danych pomiarowych
+for i=1:height(files)
+    temp = readmatrix(fullfile(files(i).folder, files(i).name));
+    rows = size(temp, 1);
+    measurementsData(1:rows, :, i) = temp;
+end
+
+%% rysowanie wykresów
+figure('WindowState','maximized');
+for i=1:height(files)
+    % tworzenie wektora czasu
+    lastMeasurement = find(measurementsData(:, 1, i) > 1);
+    if isempty(lastMeasurement)
+        lastMeasurement = 1;
+    else
+        lastMeasurement = lastMeasurement(end);
+    end
+    distanceInCm = abs(measurementsData(1:lastMeasurement, 4, i)) / pulsesPerCm;
+    timeVector = (0:lastMeasurement - 1) * 0.05; % 50 ms odstępu między iteracjami
+    plot(timeVector, distanceInCm, 'Color', [0 0.4470 0.7410], 'LineWidth', 1);
+    y = abs(measurementsData(lastMeasurement, 4, i)) / pulsesPerCm;
+    text(timeVector(end), y, strcat('K_P=',num2str(kp(i)),', ', ...
+                                                                               'K_I=',num2str(ki(i)),', ', ...
+                                                                               'K_D=',num2str(kd(i))), ...
+                                                                               "FontSize",textFontSize);
+    hold on;
+    distanceInCm = abs(measurementsData(1:lastMeasurement, 5, i)) / pulsesPerCm;
+    plot(timeVector, distanceInCm, 'Color', [0.8500 0.3250 0.0980], 'LineWidth', 1);
+    y = abs(measurementsData(lastMeasurement, 5, i)) / pulsesPerCm;
+    text(timeVector(end), y, strcat('K_P=',num2str(kp(i)),', ', ...
+                                                                               'K_I=',num2str(ki(i)),', ', ...
+                                                                               'K_D=',num2str(kd(i))), ...
+                                                                               "FontSize",textFontSize);
+end
+
+xlabel('Czas, s');
+ylabel('Pozycja kół, cm');
+setPoint = measurementsData(1, 1, 1) / pulsesPerCm;
+firstMotorMax = max(max(abs(measurementsData(:, 4, :)))) / pulsesPerCm;
+secondMotorMax =  max(max(abs(measurementsData(:, 5, :))))  / pulsesPerCm;
+ylim([0 max([firstMotorMax,secondMotorMax, setPoint])*1.15]);
+yline(setPoint, ':', strcat('Wartosć zadana=', num2str(round(setPoint, 1))), 'FontSize', textFontSize);
+xlim([0 35]);
+legend('Koło prowadzące', 'Koło śledzące', 'Location', 'best');
+grid minor;
+
+set(gca,'fontsize', axisFontSize)
